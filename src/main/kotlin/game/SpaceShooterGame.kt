@@ -16,7 +16,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 class SpaceShooterGame : ApplicationAdapter() {
-  private lateinit var batch: SpriteBatch
+  lateinit var batch: SpriteBatch
 
   private lateinit var playerShip: SpaceShip
   private lateinit var enemyShip: Texture
