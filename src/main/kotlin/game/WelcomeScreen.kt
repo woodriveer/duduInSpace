@@ -1,6 +1,7 @@
 package br.com.woodriver.game
 
-import com.badlogic.gdx.ApplicationAdapter
+import com.badlogic.gdx.Game
+import com.badlogic.gdx.Screen
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.BitmapFont
@@ -16,14 +17,14 @@ import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 
 
-class WelcomeScreen: ApplicationAdapter() {
+class WelcomeScreen(private val game: Game) : Screen {
   private lateinit var batch: SpriteBatch
   private lateinit var font: BitmapFont
   private lateinit var skin: Skin
   private lateinit var stage: Stage
   private lateinit var outputLabel: Label
 
-  override fun create() {
+  override fun show() {
     batch = SpriteBatch()
     stage = Stage(ScreenViewport())
     font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
@@ -45,6 +46,7 @@ class WelcomeScreen: ApplicationAdapter() {
 
       override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
         outputLabel.setText("Pressed Start Game Button")
+        game.setScreen(SpaceShooterGame())
         return true
       }
     })
@@ -65,30 +67,41 @@ class WelcomeScreen: ApplicationAdapter() {
     })
     stage.addActor(configurationGameButton)
 
-
-
     outputLabel = Label("Press a Button", skin, "default")
     outputLabel.setSize(Gdx.graphics.width.toFloat(), rowHeight.toFloat())
     outputLabel.setPosition(0F, rowHeight.toFloat())
     outputLabel.setAlignment(Align.center)
     stage.addActor(outputLabel)
-
   }
 
-  override fun render() {
-    // Clear screen 0
+  override fun render(delta: Float) {
+    // Clear screen
     Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
-
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
 
-    stage.act()
+    stage.act(delta)
     stage.draw()
-
-
 
     // Render everything
     batch.begin()
     font.draw(batch, "DuduInSpace", Gdx.graphics.width / 2f - 120f, 480f)
     batch.end()
+  }
+
+  override fun resize(width: Int, height: Int) {
+    stage.viewport.update(width, height, true)
+  }
+
+  override fun pause() {}
+
+  override fun resume() {}
+
+  override fun hide() {}
+
+  override fun dispose() {
+    batch.dispose()
+    font.dispose()
+    skin.dispose()
+    stage.dispose()
   }
 }

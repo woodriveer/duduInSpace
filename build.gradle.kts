@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.0.10"
+    application
 }
 
 group = "br.com.woodriver"
@@ -16,6 +17,10 @@ dependencies {
     implementation("com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion")
     implementation("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
     testImplementation(kotlin("test"))
+}
+
+application {
+    mainClass.set("br.com.woodriver.MainKt") // Note the Kt suffix for Kotlin main class
 }
 
 tasks.test {
