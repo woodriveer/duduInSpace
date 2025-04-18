@@ -25,53 +25,72 @@ class WelcomeScreen(private val game: Game) : Screen {
   private lateinit var outputLabel: Label
 
   override fun show() {
-    batch = SpriteBatch()
-    stage = Stage(ScreenViewport())
-    font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
-    skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
+    try {
+      println("Initializing WelcomeScreen...")
+      
+      println("Creating SpriteBatch...")
+      batch = SpriteBatch()
+      
+      println("Creating Stage...")
+      stage = Stage(ScreenViewport())
+      
+      println("Loading font file: fonts/audiowide.fnt")
+      font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
+      
+      println("Loading skin file: assets/skin/quantum-horizon-ui.json")
+      skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
+      println("Skin loaded successfully")
 
-    Gdx.input.inputProcessor = stage
+      Gdx.input.inputProcessor = stage
 
-    val rowHeight = Gdx.graphics.width / 12
-    val colWidth = Gdx.graphics.width / 12
+      val rowHeight = Gdx.graphics.width / 12
+      val colWidth = Gdx.graphics.width / 12
 
-    // Text Button
-    val startGameButton: Button = TextButton("Start Game", skin, "audiowide")
-    startGameButton.setSize((colWidth * 4).toFloat(), rowHeight.toFloat())
-    startGameButton.setPosition((colWidth * 4).toFloat(), (Gdx.graphics.height - rowHeight * 5).toFloat())
-    startGameButton.addListener(object : InputListener() {
-      override fun touchUp(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int) {
-        outputLabel.setText("Press a Button")
-      }
+      println("Creating UI elements...")
+      // Text Button
+      val startGameButton: Button = TextButton("Start Game", skin, "audiowide")
+      startGameButton.setSize((colWidth * 4).toFloat(), rowHeight.toFloat())
+      startGameButton.setPosition((colWidth * 4).toFloat(), (Gdx.graphics.height - rowHeight * 5).toFloat())
+      startGameButton.addListener(object : InputListener() {
+        override fun touchUp(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int) {
+          outputLabel.setText("Press a Button")
+        }
 
-      override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-        outputLabel.setText("Pressed Start Game Button")
-        game.setScreen(SpaceShooterGame())
-        return true
-      }
-    })
-    stage.addActor(startGameButton)
+        override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
+          outputLabel.setText("Pressed Start Game Button")
+          game.setScreen(LevelSelectionScreen(game))
+          return true
+        }
+      })
+      stage.addActor(startGameButton)
 
-    val configurationGameButton: Button = TextButton("Configuration", skin, "default")
-    configurationGameButton.setSize((colWidth * 4).toFloat(), rowHeight.toFloat())
-    configurationGameButton.setPosition((colWidth * 4).toFloat(), (Gdx.graphics.height - rowHeight * 6).toFloat())
-    configurationGameButton.addListener(object : InputListener() {
-      override fun touchUp(event: InputEvent, x: Float, y: Float, pointer: Int, button: Int) {
-        outputLabel.setText("Press a Button")
-      }
+      val configurationGameButton: Button = TextButton("Configuration", skin, "default")
+      configurationGameButton.setSize((colWidth * 4).toFloat(), rowHeight.toFloat())
+      configurationGameButton.setPosition((colWidth * 4).toFloat(), (Gdx.graphics.height - rowHeight * 6).toFloat())
+      configurationGameButton.addListener(object : InputListener() {
+        override fun touchUp(event: InputEvent, x: Float, y: Float, pointer: Int, button: Int) {
+          outputLabel.setText("Press a Button")
+        }
 
-      override fun touchDown(event: InputEvent, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-        outputLabel.setText("Pressed Configuration Button")
-        return true
-      }
-    })
-    stage.addActor(configurationGameButton)
+        override fun touchDown(event: InputEvent, x: Float, y: Float, pointer: Int, button: Int): Boolean {
+          outputLabel.setText("Pressed Configuration Button")
+          return true
+        }
+      })
+      stage.addActor(configurationGameButton)
 
-    outputLabel = Label("Press a Button", skin, "default")
-    outputLabel.setSize(Gdx.graphics.width.toFloat(), rowHeight.toFloat())
-    outputLabel.setPosition(0F, rowHeight.toFloat())
-    outputLabel.setAlignment(Align.center)
-    stage.addActor(outputLabel)
+      outputLabel = Label("Press a Button", skin, "default")
+      outputLabel.setSize(Gdx.graphics.width.toFloat(), rowHeight.toFloat())
+      outputLabel.setPosition(0F, rowHeight.toFloat())
+      outputLabel.setAlignment(Align.center)
+      stage.addActor(outputLabel)
+      
+      println("WelcomeScreen initialization completed successfully")
+    } catch (e: Exception) {
+      println("Error during WelcomeScreen initialization: ${e.message}")
+      e.printStackTrace()
+      throw e
+    }
   }
 
   override fun render(delta: Float) {

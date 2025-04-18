@@ -21,6 +21,7 @@ dependencies {
 
 application {
     mainClass.set("br.com.woodriver.MainKt") // Note the Kt suffix for Kotlin main class
+    applicationDefaultJvmArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005")
 }
 
 tasks.test {

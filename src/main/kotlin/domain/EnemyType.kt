@@ -16,8 +16,8 @@ public enum class EnemyType {
     fun getSpeed(): Float {
         return when (this) {
             ASTEROID -> 200f
-            UFO -> 300f
-            SPACE_SHIP -> 250f
+            UFO -> 250f
+            SPACE_SHIP -> 180f
         }
     }
 
@@ -26,6 +26,22 @@ public enum class EnemyType {
             ASTEROID -> 1
             UFO -> 10 
             SPACE_SHIP -> 15
+        }
+    }
+
+    fun getDamage(): Int {
+        return when (this) {
+            ASTEROID -> 5
+            UFO -> 10
+            SPACE_SHIP -> 15
+        }
+    }
+
+    fun getScoreValue(): Int {
+        return when (this) {
+            ASTEROID -> 100
+            UFO -> 200
+            SPACE_SHIP -> 300
         }
     }
 } 
