@@ -41,4 +41,4 @@ class DamageNumber(
         font.draw(batch, value.toString(), x, y)
         font.color = color // Reset color
     }
-} 
+}

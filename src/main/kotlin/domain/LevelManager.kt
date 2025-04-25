@@ -5,6 +5,7 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Intersector
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.Gdx
 
 class LevelManager(
     private val screenWidth: Float,
@@ -16,21 +17,28 @@ class LevelManager(
     private var isBossFight: Boolean = false
     private var isLevelCompleting: Boolean = false
     private val bossThreshold: Int = when (levelNumber) {
-        1 -> 10
-        2 -> 15
-        3 -> 20
-        4 -> 25
-        5 -> 30
-        else -> 10
+        1 -> 5
+        2 -> 10
+        3 -> 15
+        4 -> 20
+        5 -> 25
+        else -> 5
     }
     private val shapeRenderer = ShapeRenderer()
 
     fun update(delta: Float): List<Enemy> {
-        return currentBoss?.update(delta, screenWidth) ?: emptyList()
+        if (isBossFight) {
+            currentBoss?.let { boss ->
+                boss.update(delta)
+                Gdx.app.log("LevelManager", "Boss position: ${boss.info.x}, ${boss.info.y}")
+            }
+        }
+        return emptyList()
     }
 
     fun incrementScore() {
         score++
+        Gdx.app.log("LevelManager", "Score incremented to: $score (Boss threshold: $bossThreshold)")
         if (score >= bossThreshold && currentBoss == null && !isLevelCompleting) {
             startBossFight()
         }
@@ -38,12 +46,17 @@ class LevelManager(
 
     private fun startBossFight() {
         isBossFight = true
-        currentBoss = Boss.createBoss(screenWidth, screenHeight)
+        // Center the boss at the top of the screen
+        val bossX = (screenWidth - 128f) / 2
+        val bossY = screenHeight - 150f
+        currentBoss = Boss.create(bossX, bossY)
+        Gdx.app.log("LevelManager", "Starting boss fight at position: $bossX, $bossY")
     }
 
     fun handleBossDamage(projectile: Rectangle, damage: Int = 1): Boolean {
         return currentBoss?.let { boss ->
             if (Intersector.overlaps(projectile, boss.info)) {
+                Gdx.app.log("LevelManager", "Boss hit! Health: ${boss.health}")
                 if (boss.takeDamage(damage)) {
                     currentBoss = null
                     isBossFight = false
@@ -54,6 +67,14 @@ class LevelManager(
                 }
             } else {
                 false
+            }
+        } ?: false
+    }
+
+    fun handleBossAsteroidCollision(playerBounds: Rectangle): Boolean {
+        return currentBoss?.let { boss ->
+            boss.getAsteroids().any { asteroid ->
+                Intersector.overlaps(asteroid, playerBounds)
             }
         } ?: false
     }
@@ -104,4 +125,4 @@ class LevelManager(
         currentBoss?.texture?.dispose()
         shapeRenderer.dispose()
     }
-} 
+}

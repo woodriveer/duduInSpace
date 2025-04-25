@@ -10,8 +10,12 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
+import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import br.com.woodriver.DuduInSpace
+import br.com.woodriver.game.SpaceShooterGame
+import br.com.woodriver.game.MaterialManager
+import com.badlogic.gdx.Preferences
 
 class MenuScreen(
     private val game: DuduInSpace,
@@ -20,21 +24,32 @@ class MenuScreen(
 ) : Screen {
     private val batch = SpriteBatch()
     private val stage = Stage(ScreenViewport())
-    private val skin = Skin()
+    private val skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
     private val font = BitmapFont()
+    private val materialManager = MaterialManager(Gdx.app.getPreferences("SpaceShooterProgress"))
 
     override fun show() {
         Gdx.input.inputProcessor = stage
 
-        // Create and add buttons to stage
+        // Create and add UI elements to stage
+        val titleLabel = com.badlogic.gdx.scenes.scene2d.ui.Label("Dudu In Space", skin, "title")
+        val levelButton = TextButton("Level: 1", skin)
         val playButton = TextButton("Play", skin)
         playButton.addListener { event ->
             if (event.isHandled) {
-                game.setScreen(GameScreen(playerUpgrades, materials))
+                val gameScreen = SpaceShooterGame(game, 1, materialManager)
+                game.setScreen(gameScreen)
+                dispose() // Dispose resources when transitioning to another screen
             }
             true
         }
-        stage.addActor(playButton)
+        // Center everything using a Table
+        val table = Table()
+        table.setFillParent(true)
+        table.add(titleLabel).center().padBottom(40f).row()
+        table.add(levelButton).center().width(200f).height(50f).padBottom(20f).row()
+        table.add(playButton).center().width(200f).height(60f)
+        stage.addActor(table)
     }
 
     override fun render(delta: Float) {

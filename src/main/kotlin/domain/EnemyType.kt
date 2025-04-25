@@ -44,4 +44,4 @@ public enum class EnemyType {
             SPACE_SHIP -> 300
         }
     }
-} 
+}

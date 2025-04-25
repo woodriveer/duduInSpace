@@ -61,7 +61,9 @@ class LevelSelectionScreen(private val game: Game) : Screen {
             )
             levelButton.addListener(object : InputListener() {
                 override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                    game.setScreen(SpaceShooterGame(game, i, materialManager))
+                    val gameScreen = SpaceShooterGame(game, i, materialManager)
+                    game.setScreen(gameScreen)
+                    dispose() // Dispose resources when transitioning to another screen
                     return true
                 }
             })
@@ -74,7 +76,9 @@ class LevelSelectionScreen(private val game: Game) : Screen {
         backButton.setPosition((colWidth * 4).toFloat(), rowHeight.toFloat())
         backButton.addListener(object : InputListener() {
             override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                game.setScreen(WelcomeScreen(game))
+                val welcomeScreen = WelcomeScreen(game)
+                game.setScreen(welcomeScreen)
+                dispose() // Dispose resources when transitioning to another screen
                 return true
             }
         })

@@ -24,12 +24,10 @@ class EnemySpawner(
         val enemyType = getRandomEnemyType()
         val size = getRandomSize(enemyType)
         val x = Random.nextFloat() * (screenWidth - size)
-        return Enemy.createEnemy(
+        return Enemy.create(
             type = enemyType,
             x = x,
-            y = screenHeight,
-            width = size,
-            height = size
+            y = screenHeight
         )
     }
 
@@ -58,4 +56,4 @@ class EnemySpawner(
         spawnTimer = 0f
         difficulty = 1f
     }
-} 
+}

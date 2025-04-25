@@ -1,9 +1,12 @@
 package br.com.woodriver.domain
 
-class Materials {
-    private var iron = 0
-    private var gold = 0
-    private var crystal = 0
+import com.badlogic.gdx.Preferences
+
+data class Materials(
+    var iron: Int = 0,
+    var gold: Int = 0,
+    var crystal: Int = 0
+) {
 
     fun addIron(amount: Int) {
         iron += amount
@@ -16,10 +19,6 @@ class Materials {
     fun addCrystal(amount: Int) {
         crystal += amount
     }
-
-    fun getIron(): Int = iron
-    fun getGold(): Int = gold
-    fun getCrystal(): Int = crystal
 
     fun hasEnough(ironNeeded: Int, goldNeeded: Int, crystalNeeded: Int): Boolean {
         return iron >= ironNeeded && gold >= goldNeeded && crystal >= crystalNeeded
@@ -34,4 +33,15 @@ class Materials {
         }
         return false
     }
-} 
+
+    companion object {
+        fun create(preferences: Preferences): Materials {
+            return Materials(
+                iron = preferences.getInteger("iron", 0),
+                gold = preferences.getInteger("gold", 0),
+                crystal = preferences.getInteger("crystal", 0)  
+            )
+        }
+    }
+}
+ 

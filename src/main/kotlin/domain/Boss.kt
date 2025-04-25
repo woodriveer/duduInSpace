@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import kotlin.random.Random
 import com.badlogic.gdx.utils.Disposable
+import com.badlogic.gdx.Gdx
 
 class Boss(
     x: Float,
@@ -14,23 +15,119 @@ class Boss(
     width: Float = 128f,
     height: Float = 128f
 ) : Disposable {
-    private val texture = Texture("assets/boss.png")
-    private val _bounds = Rectangle(x, y, width, height)
-    private var health = 100
+    val texture = Texture("assets/boss.png")
+    private val asteroidTexture = Texture("assets/asteroid-01.png")
+    val info = Rectangle(x, y, width, height)
+    var health = 100
+    val maxHealth = 100
     private var damage = 20
     var isDead = false
         private set
 
-    val bounds: Rectangle
-        get() = _bounds
+    // Movement properties
+    private var moveSpeed = 100f
+    private var moveDirection = 1f // 1 for right, -1 for left
+    private var moveTimer = 0f
+    private val moveInterval = 2f // Change direction every 2 seconds
+    private var verticalOffset = 0f
+    private var verticalSpeed = 20f
+    private var verticalDirection = 1f
+
+    // Attack properties
+    private var attackTimer = 0f
+    private val attackInterval = 1.5f // Attack every 1.5 seconds
+    private val asteroidSpeed = 200f
+    private val asteroids = mutableListOf<Rectangle>()
+    private val asteroidSize = 96f // Made asteroids even bigger
+    private val asteroidColor = Color(1f, 0.5f, 0.5f, 1f) // Red tint
+
+    init {
+        Gdx.app.log("Boss", "Boss initialized at position: ${info.x}, ${info.y}")
+    }
 
     fun update(deltaTime: Float) {
-        // Boss movement pattern can be implemented here
+        if (isDead) return
+
+        // Update movement
+        moveTimer += deltaTime
+        if (moveTimer >= moveInterval) {
+            moveDirection *= -1
+            moveTimer = 0f
+            Gdx.app.log("Boss", "Changing direction to: ${if (moveDirection > 0) "right" else "left"}")
+        }
+
+        // Horizontal movement
+        info.x += moveSpeed * moveDirection * deltaTime
+
+        // Keep boss within screen bounds
+        if (info.x < 0) {
+            info.x = 0f
+            moveDirection = 1f
+        } else if (info.x + info.width > Gdx.graphics.width) {
+            info.x = Gdx.graphics.width - info.width
+            moveDirection = -1f
+        }
+
+        // Vertical movement (bobbing up and down)
+        verticalOffset += verticalSpeed * verticalDirection * deltaTime
+        if (verticalOffset > 20f) {
+            verticalDirection = -1f
+        } else if (verticalOffset < -20f) {
+            verticalDirection = 1f
+        }
+        info.y = Gdx.graphics.height - 150f + verticalOffset
+
+        // Update attack timer and throw asteroids
+        attackTimer += deltaTime
+        if (attackTimer >= attackInterval) {
+            throwAsteroid()
+            attackTimer = 0f
+        }
+
+        // Update asteroids
+        updateAsteroids(deltaTime)
+    }
+
+    private fun throwAsteroid() {
+        val asteroid = Rectangle(
+            info.x + info.width / 2 - asteroidSize / 2,
+            info.y,
+            asteroidSize,
+            asteroidSize
+        )
+        asteroids.add(asteroid)
+        Gdx.app.log("Boss", "Throwing asteroid at position: ${asteroid.x}, ${asteroid.y} with size: ${asteroid.width}x${asteroid.height}")
+    }
+
+    private fun updateAsteroids(deltaTime: Float) {
+        val iterator = asteroids.iterator()
+        while (iterator.hasNext()) {
+            val asteroid = iterator.next()
+            asteroid.y -= asteroidSpeed * deltaTime
+
+            // Remove asteroids that are off screen
+            if (asteroid.y + asteroid.height < 0) {
+                iterator.remove()
+                Gdx.app.log("Boss", "Removed asteroid at position: ${asteroid.x}, ${asteroid.y}")
+            }
+        }
+    }
+
+    fun isDestroyed(): Boolean {
+        return isDead
     }
 
     fun draw(batch: SpriteBatch) {
         if (!isDead) {
-            batch.draw(texture, _bounds.x, _bounds.y, _bounds.width, _bounds.height)
+            batch.draw(texture, info.x, info.y, info.width, info.height)
+            
+            // Draw asteroids with color tint
+            asteroids.forEach { asteroid ->
+                batch.setColor(asteroidColor)
+                batch.draw(asteroidTexture, asteroid.x, asteroid.y, asteroid.width, asteroid.height)
+                batch.setColor(Color.WHITE) // Reset color
+                Gdx.app.log("Boss", "Drawing asteroid at position: ${asteroid.x}, ${asteroid.y}")
+            }
         }
     }
 
@@ -43,8 +140,12 @@ class Boss(
         return false
     }
 
+    fun getAsteroids(): List<Rectangle> = asteroids.toList()
+
     override fun dispose() {
         texture.dispose()
+        asteroidTexture.dispose()
+        asteroids.clear()
     }
 
     companion object {
@@ -52,4 +153,4 @@ class Boss(
             return Boss(x, y)
         }
     }
-} 
+}

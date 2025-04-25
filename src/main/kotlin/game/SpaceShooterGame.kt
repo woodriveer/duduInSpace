@@ -23,6 +23,8 @@ import kotlin.math.min
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.Preferences
 import br.com.woodriver.domain.ObjectPool
+import br.com.woodriver.game.GameState.GAME_OVER
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 
 class SpaceShooterGame(
@@ -101,12 +103,10 @@ class SpaceShooterGame(
         }
     )
 
-    private val enemyPool = ObjectPool(
+    private val enemyPool = ObjectPool<Enemy>(
         maxSize = MAX_ENEMIES,
-        factory = { Enemy.createEnemy(EnemyType.ASTEROID, 0f, 0f, 32f, 32f) },
-        reset = { enemy ->
-            enemy.reset()
-        }
+        factory = { Enemy.create(EnemyType.ASTEROID, 0f, 0f) },
+        reset = {}
     )
 
     // Active objects lists (replace existing lists)
@@ -123,6 +123,8 @@ class SpaceShooterGame(
     private var collisionChecksPerFrame: Int = 0
     private var showPerformanceInfo: Boolean = false // Toggle for performance info
 
+    private var disposed = false
+
     override fun show() {
         Gdx.app.log(TAG, "Starting level $levelNumber")
         batch = SpriteBatch()
@@ -134,7 +136,7 @@ class SpaceShooterGame(
         spaceShipTexture = Texture("assets/spaceship-01.png")
         projectileTexture = Texture("assets/projectile-01.png")
         asteroidTexture = Texture("assets/asteroid-01.png")
-        
+
         // Load power-up textures
         PowerUpType.entries.forEach { type ->
             powerUpTextures[type] = Texture(type.getTexturePath())
@@ -220,91 +222,162 @@ class SpaceShooterGame(
         batch.begin()
 
         // Draw player
-        playerShip.draw(batch)
+        try {
+            playerShip.draw(batch)
+        } catch (e: Exception) {
+            Gdx.app.error(TAG, "Error drawing player: ${e.message}", e)
+        }
 
         // Draw projectiles
         activeProjectiles.forEach { projectile ->
             val scale = if (isBiggerProjectilesActive) 1.5f else 1f
-            batch.draw(
-                playerShip.projectileTexture,
-                if (isBiggerProjectilesActive) biggerProjectileCorrection(projectile) else projectile.x,
-                projectile.y,
-                projectile.width * scale,
-                projectile.height * scale
-            )
+            try {
+                if (!disposed) {
+                    batch.draw(
+                        playerShip.projectileTexture,
+                        if (isBiggerProjectilesActive) biggerProjectileCorrection(projectile) else projectile.x,
+                        projectile.y,
+                        projectile.width * scale,
+                        projectile.height * scale
+                    )
+                }
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error drawing projectile: ${e.message}", e)
+                // Continue with the next projectile
+            }
         }
 
         // Draw enemies
         activeEnemies.forEach { enemy ->
-            batch.draw(
-                enemy.texture,
-                enemy.info.x,
-                enemy.info.y,
-                enemy.info.width,
-                enemy.info.height
-            )
+            try {
+                if (!disposed) {
+                    batch.draw(
+                        enemy.texture,
+                        enemy.x,
+                        enemy.y,
+                        enemy.width,
+                        enemy.height
+                    )
+                }
+            } catch (e: Exception) {
+                Gdx.app.error("SpaceShooterGame", "Error drawing enemy: ${e.message}", e)
+                // Continue with the next enemy
+            }
         }
 
         // Draw power-ups
         powerUps.forEach { powerUp ->
-            powerUp.update(delta)
-            powerUp.draw(batch)
+            try {
+                if (!disposed) {
+                    powerUp.update(delta)
+                    powerUp.draw(batch)
+                }
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error updating/drawing power-up: ${e.message}", e)
+                // Continue with the next power-up
+            }
         }
 
         // Draw boss
-        levelManager.draw(batch)
+        try {
+            if (!disposed) {
+                levelManager.draw(batch)
+            }
+        } catch (e: Exception) {
+            Gdx.app.error(TAG, "Error drawing boss/level: ${e.message}", e)
+        }
 
         // Draw damage numbers
         activeDamageNumbers.forEach { damageNumber ->
-            damageNumber.draw(batch)
+            try {
+                if (!disposed) {
+                    damageNumber.draw(batch)
+                }
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error drawing damage number: ${e.message}", e)
+                // Continue with the next damage number
+            }
         }
 
         // Draw UI
-        font.draw(batch, "Asteroids Destroyed: $destroyedAsteroids", 10f, Gdx.graphics.height - 20f)
-        font.draw(batch, "Health: ${playerShip.health}/${playerShip.maxHealth}", 10f, Gdx.graphics.height - 50f)
-        if (isTripleShotActive || isBiggerProjectilesActive || projectileCooldown < 0.05f) {
-            font.draw(batch, "Power-up active!", 10f, Gdx.graphics.height - 80f)
+        try {
+            if (!disposed) {
+                font.draw(batch, "Asteroids Destroyed: $destroyedAsteroids", 10f, Gdx.graphics.height - 20f)
+                font.draw(batch, "Health: ${playerShip.health}/${playerShip.maxHealth}", 10f, Gdx.graphics.height - 50f)
+                if (isTripleShotActive || isBiggerProjectilesActive || projectileCooldown < 0.05f) {
+                    font.draw(batch, "Power-up active!", 10f, Gdx.graphics.height - 80f)
+                }
+            }
+        } catch (e: Exception) {
+            Gdx.app.error(TAG, "Error drawing UI: ${e.message}", e)
         }
 
         // Draw performance metrics (smaller and in right corner)
         if (showPerformanceInfo) {
-            val smallFont = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
-            smallFont.data.setScale(0.5f) // Make font smaller
-            smallFont.color = com.badlogic.gdx.graphics.Color.WHITE // Set font color to white
-            
-            val rightMargin = 10f
-            val lineHeight = 15f
-            var yPos = Gdx.graphics.height - 20f
-            
-            // Draw a semi-transparent black background for better visibility
-            batch.end()
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-            shapeRenderer.setColor(0f, 0f, 0f, 0.5f)
-            shapeRenderer.rect(
-                Gdx.graphics.width - 160f,
-                yPos - 60f,
-                150f,
-                60f
-            )
-            shapeRenderer.end()
-            batch.begin()
-            
-            smallFont.draw(batch, "FPS: ${Gdx.graphics.framesPerSecond}", 
-                Gdx.graphics.width - 150f, yPos)
-            yPos -= lineHeight
-            
-            smallFont.draw(batch, "Enemies: ${activeEnemies.size}", 
-                Gdx.graphics.width - 150f, yPos)
-            yPos -= lineHeight
-            
-            smallFont.draw(batch, "Projectiles: ${activeProjectiles.size}", 
-                Gdx.graphics.width - 150f, yPos)
-            yPos -= lineHeight
-            
-            smallFont.draw(batch, "Collisions: $collisionChecksPerFrame", 
-                Gdx.graphics.width - 150f, yPos)
-            
-            smallFont.dispose()
+            if (!disposed) {
+                var smallFont: BitmapFont? = null
+                try {
+                    smallFont = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
+                    smallFont.data.setScale(0.5f) // Make font smaller
+                    smallFont.color = Color.WHITE // Set font color to white
+
+                    val rightMargin = 10f
+                    val lineHeight = 15f
+                    var yPos = Gdx.graphics.height - 20f
+
+                    // Draw a semi-transparent black background for better visibility
+                    batch.end()
+                    try {
+                        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+                        shapeRenderer.setColor(0f, 0f, 0f, 0.5f)
+                        shapeRenderer.rect(
+                            Gdx.graphics.width - 160f,
+                            yPos - 60f,
+                            150f,
+                            60f
+                        )
+                        shapeRenderer.end()
+                    } catch (e: Exception) {
+                        Gdx.app.error(TAG, "Error drawing performance metrics background: ${e.message}", e)
+                    }
+                    batch.begin()
+
+                    try {
+                        smallFont.draw(
+                            batch, "FPS: ${Gdx.graphics.framesPerSecond}",
+                            Gdx.graphics.width - 150f, yPos
+                        )
+                        yPos -= lineHeight
+
+                        smallFont.draw(
+                            batch, "Enemies: ${activeEnemies.size}",
+                            Gdx.graphics.width - 150f, yPos
+                        )
+                        yPos -= lineHeight
+
+                        smallFont.draw(
+                            batch, "Projectiles: ${activeProjectiles.size}",
+                            Gdx.graphics.width - 150f, yPos
+                        )
+                        yPos -= lineHeight
+
+                        smallFont.draw(
+                            batch, "Collisions: $collisionChecksPerFrame",
+                            Gdx.graphics.width - 150f, yPos
+                        )
+                    } catch (e: Exception) {
+                        Gdx.app.error(TAG, "Error drawing performance metrics text: ${e.message}", e)
+                    }
+                } catch (e: Exception) {
+                    Gdx.app.error(TAG, "Error setting up performance metrics: ${e.message}", e)
+                } finally {
+                    try {
+                        smallFont?.dispose()
+                    } catch (e: Exception) {
+                        Gdx.app.error(TAG, "Error disposing smallFont: ${e.message}", e)
+                    }
+                }
+            }
         }
 
         batch.end()
@@ -324,7 +397,7 @@ class SpaceShooterGame(
             val currentTime = System.currentTimeMillis()
             val elapsedTime = currentTime - lastLogTime
             val fps = frameCount / (elapsedTime / 1000f)
-            
+
             Gdx.app.log(TAG, """
                 Performance Metrics:
                 - FPS: $fps
@@ -335,7 +408,7 @@ class SpaceShooterGame(
                 - Total Collision Checks: $totalCollisionChecks
                 - Memory Usage: ${Runtime.getRuntime().totalMemory() / (1024 * 1024)}MB
             """.trimIndent())
-            
+
             performanceLogTimer = 0f
             frameCount = 0
             lastLogTime = currentTime
@@ -487,13 +560,13 @@ class SpaceShooterGame(
 
         // Update enemy targets with player position
         activeEnemies.forEach { enemy ->
-            enemy.updateTarget(playerShip.info.x, playerShip.info.y)
+            enemy.updateTarget(playerShip.info.x, playerShip.info.y, delta)
             enemy.update(delta)
 
             activeProjectiles.forEach { projectile ->
                 collisionChecksPerFrame++
                 totalCollisionChecks++
-                if (Intersector.overlaps(projectile, enemy.info)) {
+                if (Intersector.overlaps(projectile, enemy.bounds)) {
                     val damage = if (isBiggerProjectilesActive) biggerProjectileDamage else baseProjectileDamage
                     Gdx.app.log(TAG, "Enemy hit! Damage: $damage")
                     if (enemy.takeDamage(damage)) {
@@ -501,7 +574,7 @@ class SpaceShooterGame(
                         destroyedAsteroids++
                         levelManager.incrementScore()
                         Gdx.app.log(TAG, "Enemy destroyed! Total destroyed: $destroyedAsteroids")
-                        
+
                         // Check for material drop
                         if (materialManager.shouldDropMaterial()) {
                             materialManager.addMaterial()
@@ -515,7 +588,7 @@ class SpaceShooterGame(
             }
 
             // Check for collision with player
-            if (Intersector.overlaps(enemy.info, playerShip.info)) {
+            if (Intersector.overlaps(enemy.bounds, playerShip.info)) {
                 Gdx.app.log(TAG, "Player hit by enemy! Health: ${playerShip.health}")
                 if (playerShip.takeDamage()) {
                     Gdx.app.log(TAG, "Game Over! Player health depleted")
@@ -524,7 +597,7 @@ class SpaceShooterGame(
                 enemiesToRemove.add(enemy)
             }
 
-            if (enemy.isOffScreen(Gdx.graphics.height.toFloat())) {
+            if (enemy.isOffScreen(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())) {
                 enemiesToRemove.add(enemy)
             }
         }
@@ -551,6 +624,15 @@ class SpaceShooterGame(
                     gameOver()
                 }
             }
+
+            // Check for boss asteroid collisions with player
+            if (levelManager.handleBossAsteroidCollision(playerShip.info)) {
+                Gdx.app.log(TAG, "Player hit by boss asteroid! Health: ${playerShip.health}")
+                if (playerShip.takeDamage()) {
+                    Gdx.app.log(TAG, "Game Over! Player health depleted")
+                    gameOver()
+                }
+            }
         }
 
         // Remove enemies and return them to the pool
@@ -568,10 +650,10 @@ class SpaceShooterGame(
 
     private fun spawnEnemy(x: Float, y: Float, width: Float, height: Float) {
         val enemy = enemyPool.obtain().apply {
-            info.x = x
-            info.y = y
-            info.width = width
-            info.height = height
+            this.x = x
+            this.y = y
+            this.width = width
+            this.height = height
         }
         activeEnemies.add(enemy)
     }
@@ -598,7 +680,7 @@ class SpaceShooterGame(
                 batch.begin()
                 playerShip.draw(batch)
                 batch.end()
-                
+
                 if (playerShip.updateVictoryAnimation(delta)) {
                     gameState = GameState.TRANSITIONING
                     transitionToNextLevel()
@@ -607,6 +689,10 @@ class SpaceShooterGame(
             GameState.TRANSITIONING -> {
                 // Do nothing while transitioning
             }
+            GAME_OVER ->
+            {
+                // Do Nothing while game over
+            }
         }
     }
 
@@ -614,10 +700,11 @@ class SpaceShooterGame(
         // Mark level as completed
         preferences.putBoolean("level_${levelNumber}_completed", true)
         preferences.flush()
-        
-        // Clean up current level
+
+        // Create new screen before disposing current one
+        val nextScreen = LevelSelectionScreen(game)
+        game.setScreen(nextScreen)
         dispose()
-        game.setScreen(LevelSelectionScreen(game))
     }
 
     private fun gameOver() {
@@ -625,10 +712,12 @@ class SpaceShooterGame(
         // Save progress
         preferences.putBoolean("level_${levelNumber}_completed", true)
         preferences.flush()
-        
-        // Clean up and return to level selection
+
+        // Create new screen before disposing current one
+        val nextScreen = LevelSelectionScreen(game)
+        game.setScreen(nextScreen)
         dispose()
-        game.setScreen(LevelSelectionScreen(game))
+        gameState = GAME_OVER
     }
 
     override fun resize(width: Int, height: Int) {}
@@ -637,21 +726,153 @@ class SpaceShooterGame(
 
     override fun resume() {}
 
-    override fun hide() {}
+    override fun hide() {
+        // No need to dispose here as it will be handled in gameOver() or transitionToNextLevel()
+    }
 
     override fun dispose() {
-        Gdx.app.log(TAG, "Disposing game resources")
-        batch.dispose()
-        shapeRenderer.dispose()
-        playerShip.texture.dispose()
-        playerShip.projectileTexture.dispose()
-        enemyShip.dispose()
-        powerUps.forEach { it.dispose() }
-        enemies.forEach { it.texture.dispose() }
-        levelManager.dispose()
-        damageFont.dispose()
-        projectilePool.freeAll()
-        damageNumberPool.freeAll()
-        enemyPool.freeAll()
+        if (!disposed) {
+            Gdx.app.log(TAG, "Disposing game resources")
+            var disposalError: Exception? = null
+
+            // Clear active collections first to reduce potential issues
+            try {
+                Gdx.app.log(TAG, "Clearing active collections")
+                activeProjectiles.clear()
+                activeDamageNumbers.clear()
+                //activeEnemies.clear()
+                powerUps.clear()
+                enemies.clear()
+                projectiles.clear()
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error clearing collections: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            // Dispose resources in a safe manner, catching exceptions for each resource
+            try { 
+                if (::batch.isInitialized) batch.dispose() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error disposing batch: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                if (::shapeRenderer.isInitialized) shapeRenderer.dispose() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error disposing shapeRenderer: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                if (::playerShip.isInitialized && ::playerShip.get().texture != null) playerShip.texture.dispose() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error disposing playerShip texture: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                if (::playerShip.isInitialized && ::playerShip.get().projectileTexture != null) playerShip.projectileTexture.dispose() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error disposing projectile texture: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                if (::enemyShip.isInitialized) enemyShip.dispose() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error disposing enemyShip: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            // Dispose power-ups
+            try {
+                powerUps.forEach { powerUp ->
+                    try { powerUp.dispose() } catch (e: Exception) {
+                        Gdx.app.error(TAG, "Error disposing powerUp: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error in powerUps loop: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            // Dispose enemies
+            try {
+                enemies.forEach { enemy ->
+                    try { enemy.texture.dispose() } catch (e: Exception) {
+                        Gdx.app.error(TAG, "Error disposing enemy texture: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error in enemies loop: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                if (::levelManager.isInitialized) levelManager.dispose() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error disposing levelManager: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                if (::damageFont.isInitialized) damageFont.dispose() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error disposing damageFont: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                projectilePool.freeAll() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error freeing projectilePool: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                damageNumberPool.freeAll() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error freeing damageNumberPool: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            try { 
+                enemyPool.freeAll() 
+            } catch (e: Exception) { 
+                Gdx.app.error(TAG, "Error freeing enemyPool: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            // Dispose power-up textures
+            try {
+                powerUpTextures.values.forEach { texture ->
+                    try { texture.dispose() } catch (e: Exception) {
+                        Gdx.app.error(TAG, "Error disposing powerUpTexture: ${e.message}")
+                    }
+                }
+                powerUpTextures.clear()
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error disposing powerUpTextures: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            // Mark as disposed even if there were errors
+            disposed = true
+
+            // Log a summary if there were errors
+            if (disposalError != null) {
+                Gdx.app.error(TAG, "Completed disposal with errors. See log for details.")
+            } else {
+                Gdx.app.log(TAG, "Successfully disposed all resources")
+            }
+
+            // Force garbage collection to clean up any lingering resources
+            try {
+                System.gc()
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error forcing garbage collection: ${e.message}")
+            }
+        }
     }
 }

@@ -37,4 +37,4 @@ class Animation(
     fun dispose() {
         texture.dispose()
     }
-} 
+}

@@ -27,16 +27,16 @@ class WelcomeScreen(private val game: Game) : Screen {
   override fun show() {
     try {
       println("Initializing WelcomeScreen...")
-      
+
       println("Creating SpriteBatch...")
       batch = SpriteBatch()
-      
+
       println("Creating Stage...")
       stage = Stage(ScreenViewport())
-      
+
       println("Loading font file: fonts/audiowide.fnt")
       font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
-      
+
       println("Loading skin file: assets/skin/quantum-horizon-ui.json")
       skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
       println("Skin loaded successfully")
@@ -58,7 +58,9 @@ class WelcomeScreen(private val game: Game) : Screen {
 
         override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
           outputLabel.setText("Pressed Start Game Button")
-          game.setScreen(LevelSelectionScreen(game))
+          val levelScreen = LevelSelectionScreen(game)
+          game.setScreen(levelScreen)
+          dispose() // Dispose resources when transitioning to another screen
           return true
         }
       })
@@ -84,7 +86,7 @@ class WelcomeScreen(private val game: Game) : Screen {
       outputLabel.setPosition(0F, rowHeight.toFloat())
       outputLabel.setAlignment(Align.center)
       stage.addActor(outputLabel)
-      
+
       println("WelcomeScreen initialization completed successfully")
     } catch (e: Exception) {
       println("Error during WelcomeScreen initialization: ${e.message}")

@@ -1,6 +1,7 @@
 package br.com.woodriver.screen
 
 import br.com.woodriver.domain.PlayerUpgrades
+import br.com.woodriver.domain.Materials
 import br.com.woodriver.DuduInSpace
 import br.com.woodriver.screen.MenuScreen
 import com.badlogic.gdx.Gdx
@@ -21,9 +22,9 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFont
 class UpgradeScreen(
     private val game: br.com.woodriver.DuduInSpace,
     private val playerUpgrades: PlayerUpgrades,
-    private val materials: Int
+    private val materials: Materials
 ) : Screen {
-    private val stage: Stage
+    private val stage: Stage = Stage(ScreenViewport())
     private val skin: Skin
     private val font: BitmapFont
     private val titleFont: BitmapFont
@@ -32,11 +33,10 @@ class UpgradeScreen(
     private val backButton: TextButton
 
     init {
-        stage = Stage(ScreenViewport())
         Gdx.input.inputProcessor = stage
 
         // Create skin
-        skin = Skin()
+        skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
 
         // Generate fonts
         val generator = FreeTypeFontGenerator(Gdx.files.internal("fonts/kenvector_future.ttf"))
@@ -58,7 +58,7 @@ class UpgradeScreen(
         }
 
         // Create materials label
-        materialsLabel = Label("Materials: $materials", labelStyle)
+        materialsLabel = Label("Materials: Iron: ${materials.iron}, Gold: ${materials.gold}, Crystal: ${materials.crystal}", labelStyle)
 
         // Create upgrade table
         upgradeTable = Table()
@@ -81,11 +81,13 @@ class UpgradeScreen(
 
             upgradeButton.addListener(object : ClickListener() {
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
-                    if (playerUpgrades.canUpgrade(type, materials)) {
+                    if (playerUpgrades.canUpgrade(type, materials.iron)) {
                         if (playerUpgrades.purchaseUpgrade(type)) {
                             // Update materials and refresh screen
-                            val newMaterials = materials - upgrade.cost
-                            game.screen = UpgradeScreen(game, playerUpgrades, newMaterials)
+                            materials.spend(upgrade.cost, 0, 0)
+                            val newScreen = UpgradeScreen(game, playerUpgrades, materials)
+                            game.screen = newScreen
+                            dispose() // Dispose resources when transitioning to another screen
                         }
                     }
                 }
@@ -102,7 +104,9 @@ class UpgradeScreen(
         backButton = TextButton("Back to Menu", buttonStyle)
         backButton.addListener(object : ClickListener() {
             override fun clicked(event: InputEvent?, x: Float, y: Float) {
-                game.screen = MenuScreen(game)
+                val menuScreen = MenuScreen(game, playerUpgrades, materials)
+                game.screen = menuScreen
+                dispose() // Dispose resources when transitioning to another screen
             }
         })
 

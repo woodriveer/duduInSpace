@@ -11,8 +11,8 @@ data class SpaceShip(
   val projectileTexture: Texture,
   val info: Rectangle,
   val speed: Float = 300f,
-  var health: Int = 3,
-  val maxHealth: Int = 3
+  var health: Int = 5,
+  val maxHealth: Int = 5
 ) {
   private var isVictoryAnimation: Boolean = false
   private var victorySpeed: Float = 0f

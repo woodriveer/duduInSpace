@@ -23,7 +23,7 @@ class Enemy(
     private val _bounds = Rectangle(x, y, width, height)
     val damage = type.getDamage()
     val scoreValue = type.getScoreValue()
-    private val texture = Texture(type.getTexturePath())
+    var texture = Texture(type.getTexturePath())
 
     val bounds: Rectangle
         get() = _bounds
@@ -32,6 +32,26 @@ class Enemy(
         y -= speed * deltaTime
         _bounds.setPosition(x, y)
     }
+
+    fun isDestroyed(): Boolean {
+        return !isActive
+    }
+
+    fun isOffScreen(screenWidth: Float, screenHeight: Float): Boolean {
+        return (y + height < 0) || (y > screenHeight) || (x + width < 0) || (x > screenWidth)
+    }
+
+    fun updateTarget(targetX: Float, targetY: Float, deltaTime: Float) {
+        val direction = Vector2(targetX - x, targetY - y)
+        if (direction.len() != 0f) {
+            direction.nor()
+            x += direction.x * speed * deltaTime
+            y += direction.y * speed * deltaTime
+            _bounds.setPosition(x, y)
+        }
+    }
+
+
 
     fun draw(batch: SpriteBatch) {
         if (isActive) {

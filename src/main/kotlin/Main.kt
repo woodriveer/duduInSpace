@@ -1,6 +1,7 @@
 package br.com.woodriver
 
 import br.com.woodriver.domain.Materials
+import br.com.woodriver.domain.Materials.Companion.create
 import br.com.woodriver.domain.PlayerUpgrades
 import br.com.woodriver.screen.MenuScreen
 import com.badlogic.gdx.Game
@@ -19,7 +20,7 @@ class DuduInSpace : Game() {
             println("Starting game initialization...")
             preferences = Gdx.app.getPreferences("DuduInSpace")
             playerUpgrades = PlayerUpgrades(preferences)
-            materials = Materials()
+            materials = Materials.create(preferences)
             setScreen(MenuScreen(this, playerUpgrades, materials))
             println("Game initialization completed successfully")
         } catch (e: Exception) {
