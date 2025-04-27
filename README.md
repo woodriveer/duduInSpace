@@ -51,6 +51,8 @@ The adventure is just beginning... 🌠
 
 ### Professor Luna
 
+<img alt="professor_luna avatar" src="./docs/professor_luna.png" width="200px"/>
+
 **Race**: Human
 
 **Class**: Mentor / Astrophysicist
