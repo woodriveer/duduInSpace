@@ -16,6 +16,14 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
+hs_err_pid*.log
+
+mcp-client/node_modules
+mcp-client/package-lock.json
+mcp-server/node_modules
+mcp-server/package-lock.json
+mcp-server/logs
+
 ### Kotlin ###
 .kotlin
 

@@ -1,11 +1,13 @@
-package br.com.woodriver.domain
+package br.com.woodriver.manager
 
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.math.Rectangle
-import com.badlogic.gdx.math.Intersector
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer
-import com.badlogic.gdx.graphics.Color
+import br.com.woodriver.domain.Boss
+import br.com.woodriver.domain.Enemy
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer
+import com.badlogic.gdx.math.Intersector
+import com.badlogic.gdx.math.Rectangle
 
 class LevelManager(
     private val screenWidth: Float,
@@ -49,7 +51,7 @@ class LevelManager(
         // Center the boss at the top of the screen
         val bossX = (screenWidth - 128f) / 2
         val bossY = screenHeight - 150f
-        currentBoss = Boss.create(bossX, bossY)
+        currentBoss = Boss.Companion.create(bossX, bossY)
         Gdx.app.log("LevelManager", "Starting boss fight at position: $bossX, $bossY")
     }
 
@@ -73,7 +75,7 @@ class LevelManager(
 
     fun handleBossAsteroidCollision(playerBounds: Rectangle): Boolean {
         return currentBoss?.let { boss ->
-            boss.getAsteroids().any { asteroid ->
+            boss.asteroids.any { asteroid ->
                 Intersector.overlaps(asteroid, playerBounds)
             }
         } ?: false
@@ -81,16 +83,16 @@ class LevelManager(
 
     fun draw(batch: SpriteBatch) {
         currentBoss?.let { boss ->
-            // First draw the boss texture
-            batch.draw(boss.texture, boss.info.x, boss.info.y, boss.info.width, boss.info.height)
-            
+            // Draw boss and its asteroids
+            boss.draw(batch)
+
             // End the SpriteBatch before using ShapeRenderer
             batch.end()
-            
+
             // Configure and use ShapeRenderer
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
             shapeRenderer.projectionMatrix = batch.projectionMatrix
-            
+
             // Draw health bar
             val healthBarWidth = boss.info.width
             val healthBarHeight = 10f
@@ -106,10 +108,10 @@ class LevelManager(
             val currentHealthWidth = healthBarWidth * healthPercentage
             shapeRenderer.color = if (healthPercentage <= 0.3f) Color.RED else Color.GREEN
             shapeRenderer.rect(healthBarX, healthBarY, currentHealthWidth, healthBarHeight)
-            
+
             // End ShapeRenderer
             shapeRenderer.end()
-            
+
             // Begin SpriteBatch again for further rendering
             batch.begin()
         }

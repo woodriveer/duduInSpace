@@ -4,20 +4,6 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 
-enum class PowerUpType {
-    FASTER_SHOOTING,
-    TRIPLE_SHOT,
-    BIGGER_PROJECTILES;
-
-    fun getTexturePath(): String {
-        return when (this) {
-            FASTER_SHOOTING -> "assets/powerup_clock.png"
-            TRIPLE_SHOT -> "assets/powerup_3.png"
-            BIGGER_PROJECTILES -> "assets/powerup_muscle.png"
-        }
-    }
-}
-
 class PowerUp(
     val texture: Texture,
     val info: Rectangle,

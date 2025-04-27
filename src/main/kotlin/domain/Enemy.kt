@@ -42,16 +42,22 @@ class Enemy(
     }
 
     fun updateTarget(targetX: Float, targetY: Float, deltaTime: Float) {
-        val direction = Vector2(targetX - x, targetY - y)
-        if (direction.len() != 0f) {
-            direction.nor()
-            x += direction.x * speed * deltaTime
-            y += direction.y * speed * deltaTime
-            _bounds.setPosition(x, y)
+        when (type) {
+            EnemyType.ASTEROID -> {
+                y -= speed * deltaTime
+                _bounds.setPosition(x, y)
+            }
+            else -> {
+                val direction = Vector2(targetX - x, targetY - y)
+                if (direction.len() != 0f) {
+                    direction.nor()
+                    x += direction.x * speed * deltaTime
+                    y += direction.y * speed * deltaTime
+                    _bounds.setPosition(x, y)
+                }
+            }
         }
     }
-
-
 
     fun draw(batch: SpriteBatch) {
         if (isActive) {

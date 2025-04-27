@@ -3,7 +3,7 @@ package br.com.woodriver
 import br.com.woodriver.domain.Materials
 import br.com.woodriver.domain.Materials.Companion.create
 import br.com.woodriver.domain.PlayerUpgrades
-import br.com.woodriver.screen.MenuScreen
+import br.com.woodriver.game.StartScreen
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
@@ -11,17 +11,17 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Preferences
 
 class DuduInSpace : Game() {
-    private lateinit var preferences: Preferences
-    private lateinit var playerUpgrades: PlayerUpgrades
-    private lateinit var materials: Materials
+    lateinit var preferences: Preferences
+    lateinit var playerUpgrades: PlayerUpgrades
+    lateinit var materials: Materials
 
     override fun create() {
         try {
             println("Starting game initialization...")
             preferences = Gdx.app.getPreferences("DuduInSpace")
             playerUpgrades = PlayerUpgrades(preferences)
-            materials = Materials.create(preferences)
-            setScreen(MenuScreen(this, playerUpgrades, materials))
+            materials = create(preferences)
+            setScreen(StartScreen(this, playerUpgrades, materials))
             println("Game initialization completed successfully")
         } catch (e: Exception) {
             println("Error during game initialization: ${e.message}")

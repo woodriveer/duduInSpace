@@ -13,10 +13,14 @@ class DamageNumber(
     private var lifeTime: Float = 1f // Show for 1 second
     private var alpha: Float = 1f
     private val floatSpeed: Float = 50f // Pixels per second
+    private var color: Color = Color.RED // Default color is red
+    private var showPlusSign: Boolean = false // Whether to show plus sign
 
     fun reset() {
         lifeTime = 1f
         alpha = 1f
+        color = Color.RED // Reset to default color
+        showPlusSign = false
     }
 
     fun setValue(newValue: Int) {
@@ -28,6 +32,11 @@ class DamageNumber(
         y = newY
     }
 
+    fun setColor(newColor: Color) {
+        color = newColor
+        showPlusSign = true // Show plus sign when color is set (for material drops)
+    }
+
     fun update(delta: Float): Boolean {
         lifeTime -= delta
         alpha = lifeTime // Fade out
@@ -36,9 +45,10 @@ class DamageNumber(
     }
 
     fun draw(batch: SpriteBatch) {
-        val color = font.color
-        font.color = Color(1f, 0f, 0f, alpha) // Red color with alpha
-        font.draw(batch, value.toString(), x, y)
-        font.color = color // Reset color
+        val originalColor = font.color
+        font.color = Color(color.r, color.g, color.b, alpha) // Use the set color with alpha
+        val text = if (showPlusSign) "+$value" else value.toString()
+        font.draw(batch, text, x, y)
+        font.color = originalColor // Reset color
     }
 }

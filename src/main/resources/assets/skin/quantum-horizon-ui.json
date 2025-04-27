@@ -1,7 +1,7 @@
 {
 BitmapFont: {
 	font: {
-		file: font-export.fnt
+		file: "fonts/audiowide.fnt"
 	}
 	title: {
 		file: font-title-export.fnt

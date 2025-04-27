@@ -10,7 +10,7 @@ import com.badlogic.gdx.Preferences
 
 class ConfigurationScreen(private val game: SpaceShooterGame) : Screen {
     private val stage = Stage(ScreenViewport())
-    private val skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
+    private val skin = GlobalSkin.getInstance()
     private val preferences: Preferences = Gdx.app.getPreferences("SpaceShooterPreferences")
 
     override fun show() {
@@ -27,7 +27,7 @@ class ConfigurationScreen(private val game: SpaceShooterGame) : Screen {
         table.add(titleLabel).colspan(2).padBottom(20f).row()
 
         // Music Volume Slider
-        val musicVolumeLabel = Label("Music Volume", skin)
+        val musicVolumeLabel = Label("Music Volume", skin, "title")
         val musicVolumeSlider = Slider(0f, 1f, 0.1f, false, skin)
         musicVolumeSlider.value = preferences.getFloat("musicVolume", 0.5f)
         musicVolumeSlider.addListener {
@@ -39,7 +39,7 @@ class ConfigurationScreen(private val game: SpaceShooterGame) : Screen {
         table.add(musicVolumeSlider).width(200f).pad(10f).row()
 
         // Sound Effects Volume Slider
-        val soundVolumeLabel = Label("Sound Effects Volume", skin)
+        val soundVolumeLabel = Label("Sound Effects Volume", skin, "title")
         val soundVolumeSlider = Slider(0f, 1f, 0.1f, false, skin)
         soundVolumeSlider.value = preferences.getFloat("soundVolume", 0.5f)
         soundVolumeSlider.addListener {
@@ -77,6 +77,5 @@ class ConfigurationScreen(private val game: SpaceShooterGame) : Screen {
 
     override fun dispose() {
         stage.dispose()
-        skin.dispose()
     }
 }

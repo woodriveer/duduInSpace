@@ -1,0 +1,2 @@
+# Ignore libGDX skin JSON with unquoted keys
+src/main/resources/assets/skin/quantum-horizon-ui.json 

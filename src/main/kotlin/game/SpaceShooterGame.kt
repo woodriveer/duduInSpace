@@ -7,7 +7,7 @@ import br.com.woodriver.domain.SpaceShip
 import br.com.woodriver.domain.SpaceShip.Companion.createSpaceShipRectangle
 import br.com.woodriver.domain.EnemyType
 import br.com.woodriver.domain.EnemySpawner
-import br.com.woodriver.domain.LevelManager
+import br.com.woodriver.manager.LevelManager
 import br.com.woodriver.domain.DamageNumber
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.Gdx
@@ -24,6 +24,7 @@ import com.badlogic.gdx.Game
 import com.badlogic.gdx.Preferences
 import br.com.woodriver.domain.ObjectPool
 import br.com.woodriver.game.GameState.GAME_OVER
+import br.com.woodriver.manager.MaterialManager
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 
@@ -71,6 +72,7 @@ class SpaceShooterGame(
 
     private lateinit var font: BitmapFont
     private var destroyedAsteroids: Int = 0
+    private var materialsGained: Int = 0
     private lateinit var spaceShipTexture: Texture
     private lateinit var projectileTexture: Texture
     private lateinit var asteroidTexture: Texture
@@ -78,6 +80,7 @@ class SpaceShooterGame(
     private lateinit var levelManager: LevelManager
     private val damageNumbers = mutableListOf<DamageNumber>()
     private lateinit var damageFont: BitmapFont
+    private val materialDropNumbers = mutableListOf<DamageNumber>()
 
     private var gameState: GameState = GameState.PLAYING
 
@@ -151,6 +154,7 @@ class SpaceShooterGame(
         enemyShip = asteroidTexture
 
         font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
+        font.data.setScale(0.5f) // Make the font smaller
         damageFont = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
         damageFont.data.setScale(0.5f)
 
@@ -299,13 +303,25 @@ class SpaceShooterGame(
             }
         }
 
+        // Draw material drop numbers
+        materialDropNumbers.forEach { materialNumber ->
+            try {
+                if (!disposed) {
+                    materialNumber.draw(batch)
+                }
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error drawing material drop number: ${e.message}", e)
+            }
+        }
+
         // Draw UI
         try {
             if (!disposed) {
                 font.draw(batch, "Asteroids Destroyed: $destroyedAsteroids", 10f, Gdx.graphics.height - 20f)
-                font.draw(batch, "Health: ${playerShip.health}/${playerShip.maxHealth}", 10f, Gdx.graphics.height - 50f)
+                font.draw(batch, "Materials Gained: $materialsGained", 10f, Gdx.graphics.height - 50f)
+                font.draw(batch, "Health: ${playerShip.health}/${playerShip.maxHealth}", 10f, Gdx.graphics.height - 80f)
                 if (isTripleShotActive || isBiggerProjectilesActive || projectileCooldown < 0.05f) {
-                    font.draw(batch, "Power-up active!", 10f, Gdx.graphics.height - 80f)
+                    font.draw(batch, "Power-up active!", 10f, Gdx.graphics.height - 110f)
                 }
             }
         } catch (e: Exception) {
@@ -389,6 +405,16 @@ class SpaceShooterGame(
             if (damageNumber.update(delta)) {
                 damageIterator.remove()
                 damageNumberPool.free(damageNumber)
+            }
+        }
+
+        // Update material drop numbers after rendering
+        val materialIterator = materialDropNumbers.iterator()
+        while (materialIterator.hasNext()) {
+            val materialNumber = materialIterator.next()
+            if (materialNumber.update(delta)) {
+                materialIterator.remove()
+                damageNumberPool.free(materialNumber)
             }
         }
 
@@ -558,12 +584,18 @@ class SpaceShooterGame(
         val enemiesToRemove = mutableListOf<Enemy>()
         val projectilesToRemove = mutableListOf<Rectangle>()
 
+        // Create a copy of the collections to iterate over
+        val currentEnemies = ArrayList(activeEnemies)
+        val currentProjectiles = ArrayList(activeProjectiles)
+
         // Update enemy targets with player position
-        activeEnemies.forEach { enemy ->
+        for (enemy in currentEnemies) {
             enemy.updateTarget(playerShip.info.x, playerShip.info.y, delta)
             enemy.update(delta)
 
-            activeProjectiles.forEach { projectile ->
+            for (projectile in currentProjectiles) {
+                if (projectilesToRemove.contains(projectile)) continue // Skip already marked projectiles
+                
                 collisionChecksPerFrame++
                 totalCollisionChecks++
                 if (Intersector.overlaps(projectile, enemy.bounds)) {
@@ -575,10 +607,12 @@ class SpaceShooterGame(
                         levelManager.incrementScore()
                         Gdx.app.log(TAG, "Enemy destroyed! Total destroyed: $destroyedAsteroids")
 
-                        // Check for material drop
-                        if (materialManager.shouldDropMaterial()) {
-                            materialManager.addMaterial()
-                            Gdx.app.log(TAG, "Material dropped!")
+                        // Check for material drop with position
+                        val (dropped, position) = materialManager.handleMaterialDrop(enemy.x, enemy.y)
+                        if (dropped) {
+                            materialsGained++
+                            spawnMaterialDropNumber(position.first, position.second)
+                            Gdx.app.log(TAG, "Material dropped! Total gained: $materialsGained")
                         }
                     }
                     // Add damage number
@@ -603,14 +637,30 @@ class SpaceShooterGame(
         }
 
         // Check for projectile collisions with boss
-        activeProjectiles.forEach { projectile ->
-            if (!projectilesToRemove.contains(projectile)) { // Only check if projectile hasn't already hit something
-                val damage = if (isBiggerProjectilesActive) biggerProjectileDamage else baseProjectileDamage
-                if (levelManager.handleBossDamage(projectile, damage)) {
-                    Gdx.app.log(TAG, "Boss hit! Damage: $damage")
-                    // Add damage number
-                    spawnDamageNumber(damage, projectile.x, projectile.y)
-                    projectilesToRemove.add(projectile)
+        for (projectile in currentProjectiles) {
+            if (projectilesToRemove.contains(projectile)) continue // Skip already marked projectiles
+
+            val damage = if (isBiggerProjectilesActive) biggerProjectileDamage else baseProjectileDamage
+            if (levelManager.handleBossDamage(projectile, damage)) {
+                Gdx.app.log(TAG, "Boss hit! Damage: $damage")
+                // Add damage number
+                spawnDamageNumber(damage, projectile.x, projectile.y)
+                projectilesToRemove.add(projectile)
+                continue
+            }
+
+            // Check for projectile collisions with boss asteroids
+            levelManager.getCurrentBoss()?.let { boss ->
+                for (asteroid in boss.asteroids) {
+                    if (Intersector.overlaps(projectile, asteroid)) {
+                        if (boss.handleAsteroidHit(asteroid)) {
+                            Gdx.app.log(TAG, "Boss asteroid destroyed!")
+                            // Add damage number
+                            spawnDamageNumber(damage, projectile.x, projectile.y)
+                            projectilesToRemove.add(projectile)
+                            break
+                        }
+                    }
                 }
             }
         }
@@ -633,16 +683,25 @@ class SpaceShooterGame(
                     gameOver()
                 }
             }
+
+            // Check for explosion particle collisions with player
+            if (boss.checkExplosionCollisions(playerShip.info)) {
+                Gdx.app.log(TAG, "Player hit by explosion particle! Health: ${playerShip.health}")
+                if (playerShip.takeDamage()) {
+                    Gdx.app.log(TAG, "Game Over! Player health depleted")
+                    gameOver()
+                }
+            }
         }
 
         // Remove enemies and return them to the pool
-        enemiesToRemove.forEach { enemy ->
+        for (enemy in enemiesToRemove) {
             activeEnemies.remove(enemy)
             enemyPool.free(enemy)
         }
 
         // Remove projectiles and return them to the pool
-        projectilesToRemove.forEach { projectile ->
+        for (projectile in projectilesToRemove) {
             activeProjectiles.remove(projectile)
             projectilePool.free(projectile)
         }
@@ -663,6 +722,14 @@ class SpaceShooterGame(
         damageNumber.setValue(damage)
         damageNumber.setPosition(x, y)
         activeDamageNumbers.add(damageNumber)
+    }
+
+    private fun spawnMaterialDropNumber(x: Float, y: Float) {
+        val materialNumber = damageNumberPool.obtain()
+        materialNumber.setValue(1)
+        materialNumber.setPosition(x, y)
+        materialNumber.setColor(Color.BLUE) // Change color to blue
+        materialDropNumbers.add(materialNumber)
     }
 
     private fun handleLevelCompletion(delta: Float) {
@@ -691,6 +758,7 @@ class SpaceShooterGame(
             }
             GAME_OVER ->
             {
+                
                 // Do Nothing while game over
             }
         }
@@ -872,6 +940,13 @@ class SpaceShooterGame(
                 System.gc()
             } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error forcing garbage collection: ${e.message}")
+            }
+
+            try {
+                materialDropNumbers.clear()
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error clearing materialDropNumbers: ${e.message}")
+                disposalError = disposalError ?: e
             }
         }
     }

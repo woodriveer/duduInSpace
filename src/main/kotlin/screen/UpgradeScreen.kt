@@ -1,9 +1,8 @@
-package br.com.woodriver.screen
+package br.com.woodriver.game
 
 import br.com.woodriver.domain.PlayerUpgrades
 import br.com.woodriver.domain.Materials
 import br.com.woodriver.DuduInSpace
-import br.com.woodriver.screen.MenuScreen
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.Color
@@ -72,45 +71,29 @@ class UpgradeScreen(
         upgradeTable.add(materialsLabel).colspan(2).padBottom(20f).row()
 
         // Add upgrade buttons
-        PlayerUpgrades.UpgradeType.values().forEach { type ->
-            val upgrade = playerUpgrades.getUpgrade(type)
-            val levelLabel = Label("Level: ${upgrade.currentLevel}/${PlayerUpgrades.MAX_LEVEL}", labelStyle)
-            val descriptionLabel = Label(upgrade.description, labelStyle)
-            val costLabel = Label("Cost: ${upgrade.cost}", labelStyle)
-            val upgradeButton = TextButton("Upgrade", buttonStyle)
-
+        playerUpgrades.getAllUpgrades().forEach { upgrade ->
+            val upgradeButton = TextButton("${upgrade.description} (Cost: ${upgrade.cost})", buttonStyle)
             upgradeButton.addListener(object : ClickListener() {
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
-                    if (playerUpgrades.canUpgrade(type, materials.iron)) {
-                        if (playerUpgrades.purchaseUpgrade(type)) {
-                            // Update materials and refresh screen
-                            materials.spend(upgrade.cost, 0, 0)
-                            val newScreen = UpgradeScreen(game, playerUpgrades, materials)
-                            game.screen = newScreen
-                            dispose() // Dispose resources when transitioning to another screen
-                        }
+                    if (playerUpgrades.canUpgrade(upgrade.type, materials.iron)) {
+                        materials.iron -= upgrade.cost
+                        playerUpgrades.purchaseUpgrade(upgrade.type)
+                        materialsLabel.setText("Materials: Iron: ${materials.iron}, Gold: ${materials.gold}, Crystal: ${materials.crystal}")
                     }
                 }
             })
-
-            upgradeTable.add(descriptionLabel).left().pad(5f)
-            upgradeTable.add(levelLabel).right().pad(5f).row()
-            upgradeTable.add(costLabel).left().pad(5f)
-            upgradeTable.add(upgradeButton).right().pad(5f).row()
-            upgradeTable.add().height(20f).colspan(2).row()
+            upgradeTable.add(upgradeButton).colspan(2).padBottom(10f).row()
         }
 
-        // Create back button
-        backButton = TextButton("Back to Menu", buttonStyle)
+        // Add back button
+        backButton = TextButton("Back", buttonStyle)
         backButton.addListener(object : ClickListener() {
             override fun clicked(event: InputEvent?, x: Float, y: Float) {
-                val menuScreen = MenuScreen(game, playerUpgrades, materials)
-                game.screen = menuScreen
-                dispose() // Dispose resources when transitioning to another screen
+                val startScreen = StartScreen(game, playerUpgrades, materials)
+                game.setScreen(startScreen)
+                dispose()
             }
         })
-
-        // Add back button
         upgradeTable.add(backButton).colspan(2).padTop(20f)
 
         stage.addActor(upgradeTable)

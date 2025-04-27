@@ -11,16 +11,18 @@ import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.Button
 import com.badlogic.gdx.scenes.scene2d.ui.Label
-import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.badlogic.gdx.Preferences
+import br.com.woodriver.DuduInSpace
+import br.com.woodriver.domain.Materials
+import br.com.woodriver.domain.PlayerUpgrades
+import br.com.woodriver.manager.MaterialManager
 
 class LevelSelectionScreen(private val game: Game) : Screen {
     private lateinit var batch: SpriteBatch
     private lateinit var font: BitmapFont
-    private lateinit var skin: Skin
     private lateinit var stage: Stage
     private lateinit var materialLabel: Label
     private val preferences: Preferences = Gdx.app.getPreferences("SpaceShooterProgress")
@@ -30,7 +32,7 @@ class LevelSelectionScreen(private val game: Game) : Screen {
         batch = SpriteBatch()
         stage = Stage(ScreenViewport())
         font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
-        skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
+        val skin = GlobalSkin.getInstance()
         Gdx.input.inputProcessor = stage
 
         val rowHeight = Gdx.graphics.width / 12
@@ -76,9 +78,11 @@ class LevelSelectionScreen(private val game: Game) : Screen {
         backButton.setPosition((colWidth * 4).toFloat(), rowHeight.toFloat())
         backButton.addListener(object : InputListener() {
             override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                val welcomeScreen = WelcomeScreen(game)
-                game.setScreen(welcomeScreen)
-                dispose() // Dispose resources when transitioning to another screen
+                if (game is DuduInSpace) {
+                    val startScreen = StartScreen(game, game.playerUpgrades, game.materials)
+                    game.setScreen(startScreen)
+                    dispose() // Dispose resources when transitioning to another screen
+                }
                 return true
             }
         })
@@ -107,7 +111,6 @@ class LevelSelectionScreen(private val game: Game) : Screen {
     override fun dispose() {
         batch.dispose()
         font.dispose()
-        skin.dispose()
         stage.dispose()
     }
 } 

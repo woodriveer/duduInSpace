@@ -1,10 +1,10 @@
-package br.com.woodriver.game
+package br.com.woodriver.manager
 
 import com.badlogic.gdx.Preferences
 
 class MaterialManager(private val preferences: Preferences) {
     private val MATERIAL_KEY = "special_materials"
-    private val DROP_CHANCE = 0.1f // 10% chance to drop material
+    private val DROP_CHANCE = 0.3f // 10% chance to drop material
 
     fun getMaterialCount(): Int {
         return preferences.getInteger(MATERIAL_KEY, 0)
@@ -29,4 +29,14 @@ class MaterialManager(private val preferences: Preferences) {
     fun shouldDropMaterial(): Boolean {
         return Math.random() < DROP_CHANCE
     }
-} 
+
+    // New method to handle material drop with position
+    fun handleMaterialDrop(x: Float, y: Float): Pair<Boolean, Pair<Float, Float>> {
+        return if (shouldDropMaterial()) {
+            addMaterial()
+            Pair(true, Pair(x, y))
+        } else {
+            Pair(false, Pair(0f, 0f))
+        }
+    }
+}

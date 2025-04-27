@@ -1,4 +1,4 @@
-package br.com.woodriver.screen
+package br.com.woodriver.game
 
 import br.com.woodriver.DuduInSpace
 import com.badlogic.gdx.Gdx
@@ -122,6 +122,12 @@ class GameScreen(
                     if (boss.isDestroyed()) {
                         score += 100
                         materials.addIron(10)
+                    }
+                }
+                boss.asteroids.forEach { asteroid ->
+                    if (projectile.bounds.overlaps(asteroid)) {
+                        projectile.destroy()
+                        boss.asteroids.remove(asteroid)
                     }
                 }
             }
