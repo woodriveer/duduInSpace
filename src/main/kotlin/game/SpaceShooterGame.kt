@@ -128,10 +128,28 @@ class SpaceShooterGame(
 
     private var disposed = false
 
+    // Add starfield properties for sensation of movement using white dots as stars
+    private data class Star(var x: Float, var y: Float, val speed: Float)
+    private val stars = mutableListOf<Star>()
+    private val numStars = 100
+    private var screenWidth = 0f
+    private var screenHeight = 0f
+
     override fun show() {
         Gdx.app.log(TAG, "Starting level $levelNumber")
         batch = SpriteBatch()
         shapeRenderer = ShapeRenderer()
+
+        // Initialize starfield
+        screenWidth = Gdx.graphics.width.toFloat()
+        screenHeight = Gdx.graphics.height.toFloat()
+        stars.clear()
+        repeat(numStars) {
+            val x = Math.random().toFloat() * screenWidth
+            val y = Math.random().toFloat() * screenHeight
+            val speed = 30f + Math.random().toFloat() * 70f
+            stars.add(Star(x, y, speed))
+        }
 
         // Load performance display preference
         showPerformanceInfo = preferences.getBoolean("show_performance_info", false)
@@ -193,6 +211,10 @@ class SpaceShooterGame(
         // Clear screen
         Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+
+        // Animate and render starfield background
+        updateStars(delta)
+        drawStars()
 
         if (levelManager.isLevelCompleting()) {
             handleLevelCompletion(delta)
@@ -459,6 +481,29 @@ class SpaceShooterGame(
         projectileCooldown = 0.05f
         isTripleShotActive = false
         isBiggerProjectilesActive = false
+    }
+
+    // Update star positions for moving starfield background
+    private fun updateStars(delta: Float) {
+        stars.forEach { star ->
+            star.y -= star.speed * delta
+            if (star.y < 0f) {
+                star.y = screenHeight
+                star.x = Math.random().toFloat() * screenWidth
+            }
+        }
+    }
+
+    // Draw stars as small white dots using the ShapeRenderer
+    private fun drawStars() {
+        // Use same projection as batch for correct screen coordinates
+        shapeRenderer.projectionMatrix = batch.projectionMatrix
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        shapeRenderer.setColor(Color.WHITE)
+        stars.forEach { star ->
+            shapeRenderer.rect(star.x, star.y, 2f, 2f)
+        }
+        shapeRenderer.end()
     }
 
     private fun spawnPowerUps(delta: Float) {
