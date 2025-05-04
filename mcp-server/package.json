@@ -1,12 +1,13 @@
 {
-  "name": "mcp-server",
-  "version": "0.1.0",
-  "description": "MCP server to receive and store build logs",
+  "name": "mcp-build-monitor",
+  "version": "1.0.0",
+  "description": "Build monitor that watches for changes and manages builds",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "chokidar": "^3.5.3"
   }
 } 

@@ -1,6 +1,7 @@
 package br.com.woodriver.manager
 
 import com.badlogic.gdx.Preferences
+import br.com.woodriver.domain.Materials
 
 class MaterialManager(private val preferences: Preferences) {
     private val MATERIAL_KEY = "special_materials"
@@ -37,6 +38,15 @@ class MaterialManager(private val preferences: Preferences) {
             Pair(true, Pair(x, y))
         } else {
             Pair(false, Pair(0f, 0f))
+        }
+    }
+
+    companion object {
+        fun fromMaterials(materials: Materials, preferences: Preferences): MaterialManager {
+            return MaterialManager(preferences).apply {
+                // Convert iron to special materials
+                addMaterial(materials.iron)
+            }
         }
     }
 }

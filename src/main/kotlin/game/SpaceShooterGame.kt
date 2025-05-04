@@ -1,5 +1,6 @@
 package br.com.woodriver.game
 
+import br.com.woodriver.DuduInSpace
 import br.com.woodriver.domain.Enemy
 import br.com.woodriver.domain.PowerUp
 import br.com.woodriver.domain.PowerUpType
@@ -27,11 +28,18 @@ import br.com.woodriver.game.GameState.GAME_OVER
 import br.com.woodriver.manager.MaterialManager
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
+import br.com.woodriver.game.GlobalSkin
+import br.com.woodriver.game.ProfileScreen
+import br.com.woodriver.domain.PlayerUpgrades
+import br.com.woodriver.domain.PlayerUpgrades.UpgradeType
+import com.badlogic.gdx.audio.Sound
+import com.badlogic.gdx.audio.Music
 
 class SpaceShooterGame(
     private val game: Game,
     private val levelNumber: Int,
-    private val materialManager: MaterialManager
+    private val materialManager: MaterialManager,
+    private val playerUpgrades: PlayerUpgrades
 ) : Screen {
     companion object {
         private const val TAG = "SpaceShooterGame"
@@ -39,6 +47,8 @@ class SpaceShooterGame(
         private const val MAX_DAMAGE_NUMBERS = 50
         private const val MAX_ENEMIES = 30
         private const val PERFORMANCE_LOG_INTERVAL = 5f // Log performance every 5 seconds
+        private const val DEFAULT_PROJECTILE_COOLDOWN = 0.2f
+        private const val FASTER_SHOOTING_PROJECTILE_COOLDOWN = 0.1f
     }
 
     lateinit var batch: SpriteBatch
@@ -50,15 +60,16 @@ class SpaceShooterGame(
 
     // Projectile properties
     private val projectiles = mutableListOf<Rectangle>()
-    private val projectileSpeed: Float = 500f
-    private var projectileCooldown: Float = 0.05f
+    private var projectileSpeed: Float = 500f
+    private var projectileCooldown: Float = DEFAULT_PROJECTILE_COOLDOWN
     private var lastProjectileTime: Float = 0f
     private var isTripleShotActive: Boolean = false
     private var isBiggerProjectilesActive: Boolean = false
     private var powerUpTimer: Float = 0f
     private val powerUpDuration: Float = 10f
-    private val baseProjectileDamage: Int = 1
-    private val biggerProjectileDamage: Int = 3
+    private var baseProjectileDamage: Int = 1
+    private var biggerProjectileDamage: Int = 3
+    private var bulletSizeScale: Float = 1f
 
     // Enemy properties
     private val enemies = mutableListOf<Enemy>()
@@ -135,10 +146,44 @@ class SpaceShooterGame(
     private var screenWidth = 0f
     private var screenHeight = 0f
 
+    private lateinit var attackSound: Sound
+    private lateinit var backgroundMusic: Music
+    private lateinit var bossStartMusic: Music
+    private lateinit var bossLoopMusic: Music
+    private lateinit var victoryMusic: Music
+    private lateinit var defeatMusic: Music
+    private var currentMusic: Music? = null
+    private var isBossStartMusicFinished = false
+
     override fun show() {
         Gdx.app.log(TAG, "Starting level $levelNumber")
         batch = SpriteBatch()
         shapeRenderer = ShapeRenderer()
+
+        // Load music
+        backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/background.mp3"))
+        bossStartMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/boss_start.mp3"))
+        bossLoopMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/boss_loop.mp3"))
+        victoryMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/victory.mp3"))
+        defeatMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/defeat.mp3"))
+
+        // Configure music
+        backgroundMusic.isLooping = true
+        bossStartMusic.isLooping = false
+        bossLoopMusic.isLooping = true
+        victoryMusic.isLooping = false
+        defeatMusic.isLooping = false
+
+        // Set up boss music completion listener
+        bossStartMusic.setOnCompletionListener {
+            isBossStartMusicFinished = true
+            startBossLoopMusic()
+        }
+
+        // Start background music
+        currentMusic = backgroundMusic
+        currentMusic?.volume = 0.5f
+        currentMusic?.play()
 
         // Initialize starfield
         screenWidth = Gdx.graphics.width.toFloat()
@@ -154,19 +199,44 @@ class SpaceShooterGame(
         // Load performance display preference
         showPerformanceInfo = preferences.getBoolean("show_performance_info", false)
 
-        spaceShipTexture = Texture("assets/spaceship-01.png")
+        // Choose ship skin based on upgrade
+        val skinLevel = playerUpgrades.getUpgradeLevel(UpgradeType.SHIP_SKIN)
+        val skinFiles = listOf("spaceship-01.png", "enemy_ship.png", "ufo.png")
+        val skinIndex = min(skinLevel, skinFiles.size - 1)
+        val chosenSkin = skinFiles[skinIndex]
+        spaceShipTexture = Texture("assets/$chosenSkin")
         projectileTexture = Texture("assets/projectile-01.png")
         asteroidTexture = Texture("assets/asteroid-01.png")
+        attackSound = Gdx.audio.newSound(Gdx.files.internal("assets/sound/spaceship_attack_2.mp3"))
+
+        // Apply player upgrades before creating the ship and projectiles
+        val damageBoost = playerUpgrades.getUpgradeEffect(UpgradeType.BULLET_DAMAGE).toInt()
+        val sizeBoost = playerUpgrades.getUpgradeEffect(UpgradeType.BULLET_SIZE)
+        val shipSpeedBoost = playerUpgrades.getUpgradeEffect(UpgradeType.SHIP_SPEED)
+        val shipHealthBoost = playerUpgrades.getUpgradeEffect(UpgradeType.SHIP_HEALTH).toInt()
+        val shootingSpeedBoost = playerUpgrades.getUpgradeEffect(UpgradeType.SHOOTING_SPEED)
+
+        // Projectile upgrades
+        baseProjectileDamage += damageBoost
+        biggerProjectileDamage += damageBoost
+        projectileSpeed += shootingSpeedBoost
+        bulletSizeScale = 1f + sizeBoost
 
         // Load power-up textures
         PowerUpType.entries.forEach { type ->
             powerUpTextures[type] = Texture(type.getTexturePath())
         }
 
+        // Instantiate player ship with upgraded stats
+        val upgradedSpeed = 300f + shipSpeedBoost
+        val upgradedHealth = 5 + shipHealthBoost
         playerShip = SpaceShip(
             spaceShipTexture,
             projectileTexture,
-            createSpaceShipRectangle(spaceShipTexture)
+            createSpaceShipRectangle(spaceShipTexture),
+            speed = upgradedSpeed,
+            health = upgradedHealth,
+            maxHealth = upgradedHealth
         )
 
         enemyShip = asteroidTexture
@@ -195,6 +265,11 @@ class SpaceShooterGame(
         frameCount++
         performanceLogTimer += delta
         collisionChecksPerFrame = 0
+
+        // Check for boss spawn and start boss music
+        if (levelManager.isBossFight() && currentMusic != bossStartMusic && currentMusic != bossLoopMusic) {
+            startBossStartMusic()
+        }
 
         // Log boss position if boss exists
         levelManager.getCurrentBoss()?.let { boss ->
@@ -256,7 +331,9 @@ class SpaceShooterGame(
 
         // Draw projectiles
         activeProjectiles.forEach { projectile ->
-            val scale = if (isBiggerProjectilesActive) 1.5f else 1f
+            // combine power-up size and upgrade size
+            val powerUpScale = if (isBiggerProjectilesActive) 1.5f else 1f
+            val scale = powerUpScale * bulletSizeScale
             try {
                 if (!disposed) {
                     batch.draw(
@@ -342,7 +419,7 @@ class SpaceShooterGame(
                 font.draw(batch, "Asteroids Destroyed: $destroyedAsteroids", 10f, Gdx.graphics.height - 20f)
                 font.draw(batch, "Materials Gained: $materialsGained", 10f, Gdx.graphics.height - 50f)
                 font.draw(batch, "Health: ${playerShip.health}/${playerShip.maxHealth}", 10f, Gdx.graphics.height - 80f)
-                if (isTripleShotActive || isBiggerProjectilesActive || projectileCooldown < 0.05f) {
+                if (isTripleShotActive || isBiggerProjectilesActive || projectileCooldown < DEFAULT_PROJECTILE_COOLDOWN) {
                     font.draw(batch, "Power-up active!", 10f, Gdx.graphics.height - 110f)
                 }
             }
@@ -478,7 +555,7 @@ class SpaceShooterGame(
     }
 
     private fun resetPowerUps() {
-        projectileCooldown = 0.05f
+        projectileCooldown = DEFAULT_PROJECTILE_COOLDOWN
         isTripleShotActive = false
         isBiggerProjectilesActive = false
     }
@@ -538,7 +615,7 @@ class SpaceShooterGame(
         powerUpTimer = powerUpDuration
         when (type) {
             PowerUpType.FASTER_SHOOTING -> {
-                projectileCooldown = 0.02f
+                projectileCooldown = FASTER_SHOOTING_PROJECTILE_COOLDOWN
                 Gdx.app.log(TAG, "Power-up activated: Faster Shooting")
             }
             PowerUpType.TRIPLE_SHOT -> {
@@ -567,6 +644,7 @@ class SpaceShooterGame(
             } else {
                 spawnProjectile(playerShip.info.x, playerShip.info.y)
             }
+            attackSound.play(0.1f)
             lastProjectileTime = 0f
         }
     }
@@ -786,6 +864,7 @@ class SpaceShooterGame(
                 projectiles.clear()
                 powerUps.clear()
                 gameState = GameState.VICTORY_ANIMATION
+                playVictoryMusic()
             }
             GameState.VICTORY_ANIMATION -> {
                 // Update and render victory animation
@@ -793,6 +872,7 @@ class SpaceShooterGame(
                 playerShip.draw(batch)
                 batch.end()
 
+                // Only transition when victory music is finished
                 if (playerShip.updateVictoryAnimation(delta)) {
                     gameState = GameState.TRANSITIONING
                     transitionToNextLevel()
@@ -801,36 +881,64 @@ class SpaceShooterGame(
             GameState.TRANSITIONING -> {
                 // Do nothing while transitioning
             }
-            GAME_OVER ->
-            {
-                
-                // Do Nothing while game over
+            GAME_OVER -> {
+                // Only transition when defeat music is finished
             }
         }
+    }
+
+    private fun playVictoryMusic() {
+        currentMusic?.stop()
+        currentMusic = victoryMusic
+        currentMusic?.volume = 0.5f
+        currentMusic?.play()
+    }
+
+    private fun playDefeatMusic() {
+        currentMusic?.stop()
+        currentMusic = defeatMusic
+        currentMusic?.volume = 0.5f
+        currentMusic?.play()
+    }
+
+    private fun startBossStartMusic() {
+        currentMusic?.stop()
+        currentMusic = bossStartMusic
+        currentMusic?.volume = 0.5f
+        currentMusic?.play()
+        isBossStartMusicFinished = false
+    }
+
+    private fun startBossLoopMusic() {
+        currentMusic?.stop()
+        currentMusic = bossLoopMusic
+        currentMusic?.volume = 0.5f
+        currentMusic?.play()
     }
 
     private fun transitionToNextLevel() {
         // Mark level as completed
         preferences.putBoolean("level_${levelNumber}_completed", true)
+        // Update current stage in preferences
+        preferences.putInteger("current_stage", levelNumber + 1)
         preferences.flush()
 
-        // Create new screen before disposing current one
-        val nextScreen = LevelSelectionScreen(game)
-        game.setScreen(nextScreen)
+        // Navigate to ProfileScreen after stage completion
+        val profileScreen = ProfileScreen(game as DuduInSpace)
+        game.setScreen(profileScreen)
         dispose()
     }
 
     private fun gameOver() {
         Gdx.app.log(TAG, "Game Over - Level $levelNumber completed")
+        playDefeatMusic()
         // Save progress
         preferences.putBoolean("level_${levelNumber}_completed", true)
         preferences.flush()
 
-        // Create new screen before disposing current one
-        val nextScreen = LevelSelectionScreen(game)
-        game.setScreen(nextScreen)
+        val profileScreen = ProfileScreen(game as DuduInSpace)
+        game.setScreen(profileScreen)
         dispose()
-        gameState = GAME_OVER
     }
 
     override fun resize(width: Int, height: Int) {}
@@ -991,6 +1099,25 @@ class SpaceShooterGame(
                 materialDropNumbers.clear()
             } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error clearing materialDropNumbers: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+            try {
+                attackSound.dispose()
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error disposing attackSound: ${e.message}")
+                disposalError = disposalError ?: e
+            }
+
+            // Stop and dispose all music
+            try {
+                currentMusic?.stop()
+                backgroundMusic.dispose()
+                bossStartMusic.dispose()
+                bossLoopMusic.dispose()
+                victoryMusic.dispose()
+                defeatMusic.dispose()
+            } catch (e: Exception) {
+                Gdx.app.error(TAG, "Error disposing music: ${e.message}")
                 disposalError = disposalError ?: e
             }
         }

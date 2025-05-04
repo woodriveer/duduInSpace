@@ -17,7 +17,7 @@ data class SpaceShip(
   private var isVictoryAnimation: Boolean = false
   private var victorySpeed: Float = 0f
   private val victoryAcceleration: Float = 500f
-  private val maxVictorySpeed: Float = 1000f
+  private val maxVictorySpeed: Float = 500f
   private var isInvulnerable: Boolean = false
   private var invulnerabilityTimer: Float = 0f
   private val invulnerabilityDuration: Float = 2f

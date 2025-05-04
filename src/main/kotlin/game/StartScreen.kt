@@ -18,6 +18,10 @@ import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import br.com.woodriver.domain.Materials
 import br.com.woodriver.domain.PlayerUpgrades
+import br.com.woodriver.game.GlobalSkin
+import br.com.woodriver.game.ProfileScreen
+import com.badlogic.gdx.Preferences
+import br.com.woodriver.manager.MaterialManager
 
 class StartScreen(
     private val game: Game,
@@ -27,7 +31,6 @@ class StartScreen(
     private lateinit var batch: SpriteBatch
     private lateinit var font: BitmapFont
     private lateinit var stage: Stage
-    private lateinit var outputLabel: Label
 
     override fun show() {
         try {
@@ -63,17 +66,18 @@ class StartScreen(
             table.add(titleLabel).center().padBottom(40f).row()
 
             // Start Game Button
-            val startGameButton: Button = TextButton("Start Game", skin, "audiowide")
+            val startGameButton = TextButton("Start Game", skin, "audiowide").apply {
+                // scale down the font for a smaller appearance
+                label.setFontScale(0.6f)
+            }
             startGameButton.setSize((colWidth * 4).toFloat(), rowHeight.toFloat())
             startGameButton.addListener(object : InputListener() {
                 override fun touchUp(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int) {
-                    outputLabel.setText("Press a Button")
                 }
 
                 override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                    outputLabel.setText("Pressed Start Game Button")
-                    val levelScreen = LevelSelectionScreen(game)
-                    game.setScreen(levelScreen)
+                    val profileScreen = ProfileScreen(game as DuduInSpace)
+                    game.setScreen(profileScreen)
                     dispose() // Dispose resources when transitioning to another screen
                     return true
                 }
@@ -81,17 +85,20 @@ class StartScreen(
             table.add(startGameButton).center().width(200f).height(50f).padBottom(20f).row()
 
             // Configuration Button
-            val configurationGameButton: Button = TextButton("Configuration", skin, "default")
+            val configurationGameButton: Button = TextButton("Configuration", skin, "default").apply { 
+                label.setFontScale(0.6f)
+             }
             configurationGameButton.setSize((colWidth * 4).toFloat(), rowHeight.toFloat())
             configurationGameButton.addListener(object : InputListener() {
                 override fun touchUp(event: InputEvent, x: Float, y: Float, pointer: Int, button: Int) {
-                    outputLabel.setText("Press a Button")
                 }
 
                 override fun touchDown(event: InputEvent, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                    outputLabel.setText("Pressed Configuration Button")
                     if (game is DuduInSpace) {
-                        val configScreen = UpgradeScreen(game, playerUpgrades, materials)
+                        // Use MaterialManager for special materials
+                        val prefs: Preferences = Gdx.app.getPreferences("SpaceShooterProgress")
+                        val materialManager = MaterialManager(prefs)
+                        val configScreen = UpgradeScreen(game, playerUpgrades, materialManager)
                         game.setScreen(configScreen)
                         dispose() // Dispose resources when transitioning to another screen
                     }
@@ -99,12 +106,6 @@ class StartScreen(
                 }
             })
             table.add(configurationGameButton).center().width(200f).height(50f).padBottom(20f).row()
-
-            // Output Label
-            outputLabel = Label("Press a Button", skin, "title")
-            outputLabel.setSize(Gdx.graphics.width.toFloat(), rowHeight.toFloat())
-            outputLabel.setAlignment(Align.center)
-            table.add(outputLabel).center().width(200f).height(50f)
 
             println("StartScreen initialization completed successfully")
         } catch (e: Exception) {

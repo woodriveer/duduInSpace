@@ -1,7 +1,7 @@
 package br.com.woodriver.game
 
 import br.com.woodriver.domain.PlayerUpgrades
-import br.com.woodriver.domain.Materials
+import br.com.woodriver.manager.MaterialManager
 import br.com.woodriver.DuduInSpace
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
@@ -21,7 +21,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFont
 class UpgradeScreen(
     private val game: br.com.woodriver.DuduInSpace,
     private val playerUpgrades: PlayerUpgrades,
-    private val materials: Materials
+    private val materialManager: MaterialManager
 ) : Screen {
     private val stage: Stage = Stage(ScreenViewport())
     private val skin: Skin
@@ -56,8 +56,8 @@ class UpgradeScreen(
             down = skin.newDrawable("white", Color.GRAY)
         }
 
-        // Create materials label
-        materialsLabel = Label("Materials: Iron: ${materials.iron}, Gold: ${materials.gold}, Crystal: ${materials.crystal}", labelStyle)
+        // Create materials label using special materials
+        materialsLabel = Label("Special Materials: ${materialManager.getMaterialCount()}", labelStyle)
 
         // Create upgrade table
         upgradeTable = Table()
@@ -70,15 +70,31 @@ class UpgradeScreen(
         // Add materials label
         upgradeTable.add(materialsLabel).colspan(2).padBottom(20f).row()
 
-        // Add upgrade buttons
+        // Add upgrade buttons for each upgrade type, showing level and cost, disabling when maxed or insufficient materials
+        val maxLevel = PlayerUpgrades.MAX_LEVEL
         playerUpgrades.getAllUpgrades().forEach { upgrade ->
-            val upgradeButton = TextButton("${upgrade.description} (Cost: ${upgrade.cost})", buttonStyle)
+            val currentLevel = playerUpgrades.getUpgradeLevel(upgrade.type)
+            val cost = playerUpgrades.getUpgradeCost(upgrade.type)
+            val buttonText = "${upgrade.description} LVL: $currentLevel/$maxLevel (Cost: $cost)"
+            val upgradeButton = TextButton(buttonText, buttonStyle)
+            // Disable if at max level or not enough materials
+            val canAfford = materialManager.getMaterialCount() >= cost
+            val canUpgrade = playerUpgrades.canUpgrade(upgrade.type, materialManager.getMaterialCount())
+            upgradeButton.isDisabled = !canUpgrade
             upgradeButton.addListener(object : ClickListener() {
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
-                    if (playerUpgrades.canUpgrade(upgrade.type, materials.iron)) {
-                        materials.iron -= upgrade.cost
+                    if (playerUpgrades.canUpgrade(upgrade.type, materialManager.getMaterialCount())) {
+                        // spend special materials
+                        materialManager.spendMaterial(cost)
+                        // apply upgrade
                         playerUpgrades.purchaseUpgrade(upgrade.type)
-                        materialsLabel.setText("Materials: Iron: ${materials.iron}, Gold: ${materials.gold}, Crystal: ${materials.crystal}")
+                        // update materials label
+                        materialsLabel.setText("Special Materials: ${materialManager.getMaterialCount()}")
+                        // update button text and state
+                        val newLevel = playerUpgrades.getUpgradeLevel(upgrade.type)
+                        upgradeButton.label.setText("${upgrade.description} LVL: $newLevel/$maxLevel (Cost: $cost)")
+                        val stillCanUpgrade = playerUpgrades.canUpgrade(upgrade.type, materialManager.getMaterialCount())
+                        upgradeButton.isDisabled = !stillCanUpgrade
                     }
                 }
             })
@@ -89,7 +105,8 @@ class UpgradeScreen(
         backButton = TextButton("Back", buttonStyle)
         backButton.addListener(object : ClickListener() {
             override fun clicked(event: InputEvent?, x: Float, y: Float) {
-                val startScreen = StartScreen(game, playerUpgrades, materials)
+                // Return to StartScreen using domain Materials
+                val startScreen = StartScreen(game, playerUpgrades, game.materials)
                 game.setScreen(startScreen)
                 dispose()
             }

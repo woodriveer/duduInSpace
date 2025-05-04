@@ -13,9 +13,12 @@ import br.com.woodriver.domain.Projectile
 import br.com.woodriver.domain.Boss
 import br.com.woodriver.domain.PlayerUpgrades
 import br.com.woodriver.domain.Materials
-import br.com.woodriver.domain.SpaceShooter
+import br.com.woodriver.manager.MaterialManager
 import br.com.woodriver.domain.EnemyType
-
+import com.badlogic.gdx.graphics.Color
+import br.com.woodriver.domain.DamageNumber
+import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.InputProcessor
 
 class GameScreen(
     private val game: DuduInSpace,
@@ -30,16 +33,20 @@ class GameScreen(
     private var boss: Boss? = null
     private var score = 0
     private var gameOver = false
-    private val spaceShooter = SpaceShooter(playerUpgrades, materials)
+    private val materialManager = MaterialManager.fromMaterials(materials, Gdx.app.getPreferences("SpaceShooterProgress"))
+    private val spaceShooterGame = SpaceShooterGame(game, 1, materialManager, playerUpgrades)
+    private val materialDropNumbers = mutableListOf<DamageNumber>()
+    private val damageFont = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
 
     init {
         camera.setToOrtho(false, 800f, 480f)
         batch.projectionMatrix = camera.combined
+        damageFont.data.setScale(0.5f)
     }
 
     override fun render(delta: Float) {
         if (gameOver) {
-            val upgradeScreen = UpgradeScreen(game, playerUpgrades, materials)
+            val upgradeScreen = UpgradeScreen(game, playerUpgrades, materialManager)
             game.setScreen(upgradeScreen)
             dispose() // Dispose resources when transitioning to another screen
             return
@@ -52,11 +59,7 @@ class GameScreen(
         camera.update()
         batch.projectionMatrix = camera.combined
 
-        spaceShooter.update(delta)
-
-        batch.begin()
-        spaceShooter.render(batch)
-        batch.end()
+        spaceShooterGame.render(delta)
     }
 
     private fun update(delta: Float) {
@@ -88,32 +91,22 @@ class GameScreen(
     }
 
     private fun checkCollisions() {
-        // Player-Enemy collisions
-        enemies.forEach { enemy ->
-            if (player.bounds.overlaps(enemy.bounds)) {
-                player.takeDamage(1)
-                enemy.isActive = false
-                if (player.health <= 0) {
-                    gameOver = true
-                }
-            }
-        }
-
-        // Projectile-Enemy collisions
+        // Check projectile-enemy collisions
         projectiles.forEach { projectile ->
             enemies.forEach { enemy ->
                 if (projectile.bounds.overlaps(enemy.bounds)) {
                     enemy.takeDamage(projectile.damage)
                     projectile.destroy()
-                    if (!enemy.isActive) {
+                    if (enemy.isDestroyed()) {
                         score += 10
                         materials.addIron(1)
+                        spawnMaterialDropNumber(enemy.bounds.x, enemy.bounds.y)
                     }
                 }
             }
         }
 
-        // Projectile-Boss collisions
+        // Check projectile-boss collisions
         boss?.let { boss ->
             projectiles.forEach { projectile ->
                 if (projectile.bounds.overlaps(boss.info)) {
@@ -122,6 +115,7 @@ class GameScreen(
                     if (boss.isDestroyed()) {
                         score += 100
                         materials.addIron(10)
+                        spawnMaterialDropNumber(boss.info.x, boss.info.y)
                     }
                 }
                 boss.asteroids.forEach { asteroid ->
@@ -134,13 +128,19 @@ class GameScreen(
         }
     }
 
+    private fun spawnMaterialDropNumber(x: Float, y: Float) {
+        val materialNumber = DamageNumber(1, x, y, damageFont)
+        materialNumber.setColor(Color.BLUE)
+        materialDropNumbers.add(materialNumber)
+    }
+
     override fun resize(width: Int, height: Int) {
         camera.setToOrtho(false, width.toFloat(), height.toFloat())
         batch.projectionMatrix = camera.combined
     }
 
     override fun show() {
-        Gdx.input.inputProcessor = spaceShooter
+        Gdx.input.inputProcessor = spaceShooterGame as InputProcessor
     }
 
     override fun hide() {}
@@ -148,6 +148,7 @@ class GameScreen(
     override fun resume() {}
     override fun dispose() {
         batch.dispose()
-        spaceShooter.dispose()
+        spaceShooterGame.dispose()
+        damageFont.dispose()
     }
 } 

@@ -14,7 +14,7 @@ class DuduInSpace : Game() {
     lateinit var preferences: Preferences
     lateinit var playerUpgrades: PlayerUpgrades
     lateinit var materials: Materials
-
+    
     override fun create() {
         try {
             println("Starting game initialization...")

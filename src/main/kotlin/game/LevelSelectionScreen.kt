@@ -63,7 +63,14 @@ class LevelSelectionScreen(private val game: Game) : Screen {
             )
             levelButton.addListener(object : InputListener() {
                 override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                    val gameScreen = SpaceShooterGame(game, i, materialManager)
+                    // Launch game with current upgrades
+                    val duduGame = game as DuduInSpace
+                    val gameScreen = SpaceShooterGame(
+                        game,
+                        i,
+                        materialManager,
+                        duduGame.playerUpgrades
+                    )
                     game.setScreen(gameScreen)
                     dispose() // Dispose resources when transitioning to another screen
                     return true
