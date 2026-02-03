@@ -1,0 +1,7 @@
+- [ ] Define `LevelConfig` data structure <!-- id: 0 -->
+- [ ] Refactor `EnemySpawner` to accept configuration (allowed types, interval) <!-- id: 1 -->
+- [ ] Refactor `LevelManager` to use `LevelConfig` and manage `EnemySpawner` <!-- id: 2 -->
+- [ ] Create `LevelRepository` or helper to provide configs for Levels 1-5 <!-- id: 3 -->
+- [ ] Update `SpaceShooterGame` to initialize `LevelManager` correctly <!-- id: 4 -->
+- [ ] Verify Level 1 gameplay (Asteroids only?) <!-- id: 5 -->
+- [ ] Verify Level 2 gameplay (Introduce other enemies) <!-- id: 6 -->

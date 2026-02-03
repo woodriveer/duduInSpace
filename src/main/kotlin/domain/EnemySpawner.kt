@@ -6,14 +6,13 @@ import kotlin.random.Random
 class EnemySpawner(
     private val screenWidth: Float,
     private val screenHeight: Float,
-    private val spawnInterval: Float = 1f
+    private val levelConfig: LevelConfig
 ) {
     private var spawnTimer: Float = 0f
-    private var difficulty: Float = 1f
 
     fun update(delta: Float): Enemy? {
         spawnTimer += delta
-        if (spawnTimer >= spawnInterval / difficulty) {
+        if (spawnTimer >= levelConfig.enemySpawnInterval) {
             spawnTimer = 0f
             return spawnEnemy()
         }
@@ -22,8 +21,7 @@ class EnemySpawner(
 
     private fun spawnEnemy(): Enemy {
         val enemyType = getRandomEnemyType()
-        val size = getRandomSize(enemyType)
-        val x = Random.nextFloat() * (screenWidth - size)
+        val x = Random.nextFloat() * (screenWidth)
         return Enemy.create(
             type = enemyType,
             x = x,
@@ -32,28 +30,10 @@ class EnemySpawner(
     }
 
     private fun getRandomEnemyType(): EnemyType {
-        val random = Random.nextFloat()
-        return when {
-            random < 0.6f -> EnemyType.ASTEROID
-            random < 0.8f -> EnemyType.UFO
-            else -> EnemyType.SPACE_SHIP
-        }
-    }
-
-    private fun getRandomSize(enemyType: EnemyType): Float {
-        return when (enemyType) {
-            EnemyType.ASTEROID -> (Random.nextInt(1, 4) * 32).toFloat()
-            EnemyType.UFO -> 48f
-            EnemyType.SPACE_SHIP -> 64f
-        }
-    }
-
-    fun increaseDifficulty() {
-        difficulty = minOf(difficulty + 0.1f, 3f)
+        return levelConfig.allowedEnemies.random()
     }
 
     fun reset() {
         spawnTimer = 0f
-        difficulty = 1f
     }
 }

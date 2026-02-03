@@ -87,7 +87,6 @@ class SpaceShooterGame(
     private lateinit var spaceShipTexture: Texture
     private lateinit var projectileTexture: Texture
     private lateinit var asteroidTexture: Texture
-    private lateinit var enemySpawner: EnemySpawner
     private lateinit var levelManager: LevelManager
     private val damageNumbers = mutableListOf<DamageNumber>()
     private lateinit var damageFont: BitmapFont
@@ -148,12 +147,9 @@ class SpaceShooterGame(
 
     private lateinit var attackSound: Sound
     private lateinit var backgroundMusic: Music
-    private lateinit var bossStartMusic: Music
-    private lateinit var bossLoopMusic: Music
     private lateinit var victoryMusic: Music
     private lateinit var defeatMusic: Music
     private var currentMusic: Music? = null
-    private var isBossStartMusicFinished = false
 
     override fun show() {
         Gdx.app.log(TAG, "Starting level $levelNumber")
@@ -162,23 +158,13 @@ class SpaceShooterGame(
 
         // Load music
         backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/background.mp3"))
-        bossStartMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/boss_start.mp3"))
-        bossLoopMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/boss_loop.mp3"))
         victoryMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/victory.mp3"))
         defeatMusic = Gdx.audio.newMusic(Gdx.files.internal("assets/music/defeat.mp3"))
 
         // Configure music
         backgroundMusic.isLooping = true
-        bossStartMusic.isLooping = false
-        bossLoopMusic.isLooping = true
         victoryMusic.isLooping = false
         defeatMusic.isLooping = false
-
-        // Set up boss music completion listener
-        bossStartMusic.setOnCompletionListener {
-            isBossStartMusicFinished = true
-            startBossLoopMusic()
-        }
 
         // Start background music
         currentMusic = backgroundMusic
@@ -246,11 +232,6 @@ class SpaceShooterGame(
         damageFont = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
         damageFont.data.setScale(0.5f)
 
-        enemySpawner = EnemySpawner(
-            screenWidth = Gdx.graphics.width.toFloat(),
-            screenHeight = Gdx.graphics.height.toFloat()
-        )
-
         levelManager = LevelManager(
             screenWidth = Gdx.graphics.width.toFloat(),
             screenHeight = Gdx.graphics.height.toFloat(),
@@ -265,16 +246,6 @@ class SpaceShooterGame(
         frameCount++
         performanceLogTimer += delta
         collisionChecksPerFrame = 0
-
-        // Check for boss spawn and start boss music
-        if (levelManager.isBossFight() && currentMusic != bossStartMusic && currentMusic != bossLoopMusic) {
-            startBossStartMusic()
-        }
-
-        // Log boss position if boss exists
-        levelManager.getCurrentBoss()?.let { boss ->
-            Gdx.app.log(TAG, "Boss Position - X: ${boss.info.x}, Y: ${boss.info.y}, Width: ${boss.info.width}, Height: ${boss.info.height}")
-        }
 
         // Check for performance info toggle (F3 key)
         if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
@@ -301,19 +272,12 @@ class SpaceShooterGame(
         updatePowerUpTimers(delta)
         handlePlayerMovement(delta)
         handleShooting(delta)
-        spawnEnemies(delta)
         spawnPowerUps(delta)
         updateProjectiles(delta)
 
         // Update enemies and boss
-        if (!levelManager.isBossFight()) {
-            enemySpawner.update(delta)?.let { newEnemy ->
-                activeEnemies.add(newEnemy)
-            }
-        }
-
-        levelManager.update(delta).forEach { enemy: Enemy ->
-            activeEnemies.add(enemy)
+        levelManager.update(delta)?.let { newEnemy ->
+            activeEnemies.add(newEnemy)
         }
 
         updateEnemies(delta)
@@ -379,15 +343,6 @@ class SpaceShooterGame(
                 Gdx.app.error(TAG, "Error updating/drawing power-up: ${e.message}", e)
                 // Continue with the next power-up
             }
-        }
-
-        // Draw boss
-        try {
-            if (!disposed) {
-                levelManager.draw(batch)
-            }
-        } catch (e: Exception) {
-            Gdx.app.error(TAG, "Error drawing boss/level: ${e.message}", e)
         }
 
         // Draw damage numbers
@@ -666,20 +621,6 @@ class SpaceShooterGame(
         }
     }
 
-    private fun spawnEnemies(deltaTime: Float) {
-        enemySpawnTimer += deltaTime
-
-        if (enemySpawnTimer >= enemySpawnInterval) {
-            val enemySize = (Math.random() * 3).toInt() + 1 // Randomly generate enemy size between 1 and 3
-            val enemyWidth = enemySize * enemyShip.width // Adjust the width and height based on the enemy size
-            val enemyHeight = enemySize * enemyShip.height
-
-            val enemyX = (Math.random() * (Gdx.graphics.width - enemyShip.width)).toFloat()
-            spawnEnemy(enemyX, Gdx.graphics.height.toFloat(), enemyWidth.toFloat(), enemyHeight.toFloat())
-            enemySpawnTimer = 0f
-        }
-    }
-
     private fun updateProjectiles(deltaTime: Float) {
         val iterator = activeProjectiles.iterator()
         while (iterator.hasNext()) {
@@ -718,7 +659,7 @@ class SpaceShooterGame(
 
             for (projectile in currentProjectiles) {
                 if (projectilesToRemove.contains(projectile)) continue // Skip already marked projectiles
-                
+
                 collisionChecksPerFrame++
                 totalCollisionChecks++
                 if (Intersector.overlaps(projectile, enemy.bounds)) {
@@ -727,7 +668,6 @@ class SpaceShooterGame(
                     if (enemy.takeDamage(damage)) {
                         enemiesToRemove.add(enemy)
                         destroyedAsteroids++
-                        levelManager.incrementScore()
                         Gdx.app.log(TAG, "Enemy destroyed! Total destroyed: $destroyedAsteroids")
 
                         // Check for material drop with position
@@ -756,64 +696,6 @@ class SpaceShooterGame(
 
             if (enemy.isOffScreen(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())) {
                 enemiesToRemove.add(enemy)
-            }
-        }
-
-        // Check for projectile collisions with boss
-        for (projectile in currentProjectiles) {
-            if (projectilesToRemove.contains(projectile)) continue // Skip already marked projectiles
-
-            val damage = if (isBiggerProjectilesActive) biggerProjectileDamage else baseProjectileDamage
-            if (levelManager.handleBossDamage(projectile, damage)) {
-                Gdx.app.log(TAG, "Boss hit! Damage: $damage")
-                // Add damage number
-                spawnDamageNumber(damage, projectile.x, projectile.y)
-                projectilesToRemove.add(projectile)
-                continue
-            }
-
-            // Check for projectile collisions with boss asteroids
-            levelManager.getCurrentBoss()?.let { boss ->
-                for (asteroid in boss.asteroids) {
-                    if (Intersector.overlaps(projectile, asteroid)) {
-                        if (boss.handleAsteroidHit(asteroid)) {
-                            Gdx.app.log(TAG, "Boss asteroid destroyed!")
-                            // Add damage number
-                            spawnDamageNumber(damage, projectile.x, projectile.y)
-                            projectilesToRemove.add(projectile)
-                            break
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check for boss collision with player
-        levelManager.getCurrentBoss()?.let { boss ->
-            if (Intersector.overlaps(boss.info, playerShip.info)) {
-                Gdx.app.log(TAG, "Player hit by boss! Health: ${playerShip.health}")
-                if (playerShip.takeDamage()) {
-                    Gdx.app.log(TAG, "Game Over! Player health depleted")
-                    gameOver()
-                }
-            }
-
-            // Check for boss asteroid collisions with player
-            if (levelManager.handleBossAsteroidCollision(playerShip.info)) {
-                Gdx.app.log(TAG, "Player hit by boss asteroid! Health: ${playerShip.health}")
-                if (playerShip.takeDamage()) {
-                    Gdx.app.log(TAG, "Game Over! Player health depleted")
-                    gameOver()
-                }
-            }
-
-            // Check for explosion particle collisions with player
-            if (boss.checkExplosionCollisions(playerShip.info)) {
-                Gdx.app.log(TAG, "Player hit by explosion particle! Health: ${playerShip.health}")
-                if (playerShip.takeDamage()) {
-                    Gdx.app.log(TAG, "Game Over! Player health depleted")
-                    gameOver()
-                }
             }
         }
 
@@ -901,21 +783,6 @@ class SpaceShooterGame(
         currentMusic?.play()
     }
 
-    private fun startBossStartMusic() {
-        currentMusic?.stop()
-        currentMusic = bossStartMusic
-        currentMusic?.volume = 0.5f
-        currentMusic?.play()
-        isBossStartMusicFinished = false
-    }
-
-    private fun startBossLoopMusic() {
-        currentMusic?.stop()
-        currentMusic = bossLoopMusic
-        currentMusic?.volume = 0.5f
-        currentMusic?.play()
-    }
-
     private fun transitionToNextLevel() {
         // Mark level as completed
         preferences.putBoolean("level_${levelNumber}_completed", true)
@@ -971,37 +838,37 @@ class SpaceShooterGame(
             }
 
             // Dispose resources in a safe manner, catching exceptions for each resource
-            try { 
-                if (::batch.isInitialized) batch.dispose() 
-            } catch (e: Exception) { 
+            try {
+                if (::batch.isInitialized) batch.dispose()
+            } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error disposing batch: ${e.message}")
                 disposalError = disposalError ?: e
             }
 
-            try { 
-                if (::shapeRenderer.isInitialized) shapeRenderer.dispose() 
-            } catch (e: Exception) { 
+            try {
+                if (::shapeRenderer.isInitialized) shapeRenderer.dispose()
+            } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error disposing shapeRenderer: ${e.message}")
                 disposalError = disposalError ?: e
             }
 
-            try { 
-                if (::playerShip.isInitialized && ::playerShip.get().texture != null) playerShip.texture.dispose() 
-            } catch (e: Exception) { 
+            try {
+                if (::playerShip.isInitialized && ::playerShip.get().texture != null) playerShip.texture.dispose()
+            } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error disposing playerShip texture: ${e.message}")
                 disposalError = disposalError ?: e
             }
 
-            try { 
-                if (::playerShip.isInitialized && ::playerShip.get().projectileTexture != null) playerShip.projectileTexture.dispose() 
-            } catch (e: Exception) { 
+            try {
+                if (::playerShip.isInitialized && ::playerShip.get().projectileTexture != null) playerShip.projectileTexture.dispose()
+            } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error disposing projectile texture: ${e.message}")
                 disposalError = disposalError ?: e
             }
 
-            try { 
-                if (::enemyShip.isInitialized) enemyShip.dispose() 
-            } catch (e: Exception) { 
+            try {
+                if (::enemyShip.isInitialized) enemyShip.dispose()
+            } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error disposing enemyShip: ${e.message}")
                 disposalError = disposalError ?: e
             }
@@ -1025,42 +892,34 @@ class SpaceShooterGame(
                         Gdx.app.error(TAG, "Error disposing enemy texture: ${e.message}")
                     }
                 }
+                        } catch (e: Exception) {
+                            Gdx.app.error(TAG, "Error in enemies loop: ${e.message}")
+                            disposalError = disposalError ?: e
+                        }
+
+                        try {
+                            if (::damageFont.isInitialized) damageFont.dispose()
+                        } catch (e: Exception) {
+                            Gdx.app.error(TAG, "Error disposing damageFont: ${e.message}")
+                            disposalError = disposalError ?: e
+                        }
+            try {
+                projectilePool.freeAll()
             } catch (e: Exception) {
-                Gdx.app.error(TAG, "Error in enemies loop: ${e.message}")
-                disposalError = disposalError ?: e
-            }
-
-            try { 
-                if (::levelManager.isInitialized) levelManager.dispose() 
-            } catch (e: Exception) { 
-                Gdx.app.error(TAG, "Error disposing levelManager: ${e.message}")
-                disposalError = disposalError ?: e
-            }
-
-            try { 
-                if (::damageFont.isInitialized) damageFont.dispose() 
-            } catch (e: Exception) { 
-                Gdx.app.error(TAG, "Error disposing damageFont: ${e.message}")
-                disposalError = disposalError ?: e
-            }
-
-            try { 
-                projectilePool.freeAll() 
-            } catch (e: Exception) { 
                 Gdx.app.error(TAG, "Error freeing projectilePool: ${e.message}")
                 disposalError = disposalError ?: e
             }
 
-            try { 
-                damageNumberPool.freeAll() 
-            } catch (e: Exception) { 
+            try {
+                damageNumberPool.freeAll()
+            } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error freeing damageNumberPool: ${e.message}")
                 disposalError = disposalError ?: e
             }
 
-            try { 
-                enemyPool.freeAll() 
-            } catch (e: Exception) { 
+            try {
+                enemyPool.freeAll()
+            } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error freeing enemyPool: ${e.message}")
                 disposalError = disposalError ?: e
             }
