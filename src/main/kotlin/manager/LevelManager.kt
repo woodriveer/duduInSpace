@@ -1,16 +1,5 @@
 package br.com.woodriver.manager
 
-import br.com.woodriver.domain.Boss
-import br.com.woodriver.domain.Enemy
-import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer
-import com.badlogic.gdx.math.Intersector
-import com.badlogic.gdx.math.Rectangle
-
-package br.com.woodriver.manager
-
 import br.com.woodriver.domain.Enemy
 import br.com.woodriver.domain.EnemySpawner
 import br.com.woodriver.repository.LevelRepository
@@ -23,13 +12,25 @@ class LevelManager(
     private val levelRepository = LevelRepository()
     private val levelConfig = levelRepository.getLevelConfig(levelNumber)
     private val enemySpawner = EnemySpawner(screenWidth, screenHeight, levelConfig)
-
+    private var bossFightTriggered = false
+    private var levelFinished = false
 
     fun update(delta: Float): Enemy? {
+        if (enemySpawner.isWaveFinished() && !bossFightTriggered) {
+            if (levelConfig.bossTriggerThreshold > 0 && levelConfig.waves.size >= levelConfig.bossTriggerThreshold) {
+                bossFightTriggered = true
+            } else {
+                levelFinished = true
+            }
+        }
         return enemySpawner.update(delta)
     }
 
-    fun isBossFight(): Boolean = false
+    fun isBossFight(): Boolean = bossFightTriggered
 
-    fun isLevelCompleting(): Boolean = false
+    fun onBossDefeated() {
+        levelFinished = true
+    }
+
+    fun isLevelCompleting(): Boolean = levelFinished
 }

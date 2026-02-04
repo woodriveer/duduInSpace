@@ -9,31 +9,59 @@ class EnemySpawner(
     private val levelConfig: LevelConfig
 ) {
     private var spawnTimer: Float = 0f
+    private var waveIndex = 0
+    private var enemiesSpawned = 0
+    private var waveDelayTimer = 0f
 
     fun update(delta: Float): Enemy? {
-        spawnTimer += delta
-        if (spawnTimer >= levelConfig.enemySpawnInterval) {
-            spawnTimer = 0f
-            return spawnEnemy()
+        if (waveIndex >= levelConfig.waves.size) {
+            return null
         }
+
+        val currentWave = levelConfig.waves[waveIndex]
+
+        if (waveDelayTimer < currentWave.initialDelay) {
+            waveDelayTimer += delta
+            return null
+        }
+
+        spawnTimer += delta
+        if (spawnTimer >= currentWave.spawnInterval && enemiesSpawned < currentWave.totalEnemies) {
+            spawnTimer = 0f
+            enemiesSpawned++
+            return spawnEnemy(currentWave)
+        }
+
+        if (enemiesSpawned >= currentWave.totalEnemies) {
+            waveIndex++
+            enemiesSpawned = 0
+            waveDelayTimer = 0f
+        }
+
         return null
     }
 
-    private fun spawnEnemy(): Enemy {
-        val enemyType = getRandomEnemyType()
-        val x = Random.nextFloat() * (screenWidth)
+    private fun spawnEnemy(wave: Wave): Enemy {
+        val x = when (wave.choreography) {
+            Choreography.FROM_LEFT -> 0f
+            Choreography.FROM_RIGHT -> screenWidth
+            Choreography.FROM_TOP -> Random.nextFloat() * screenWidth
+        }
         return Enemy.create(
-            type = enemyType,
+            type = wave.enemyType,
             x = x,
             y = screenHeight
         )
     }
 
-    private fun getRandomEnemyType(): EnemyType {
-        return levelConfig.allowedEnemies.random()
+    fun isWaveFinished(): Boolean {
+        return waveIndex >= levelConfig.waves.size
     }
 
     fun reset() {
         spawnTimer = 0f
+        waveIndex = 0
+        enemiesSpawned = 0
+        waveDelayTimer = 0f
     }
 }

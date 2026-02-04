@@ -5,4 +5,5 @@ enum class GameState {
     VICTORY_ANIMATION,
     TRANSITIONING,
     GAME_OVER,
-} 
+    UPGRADE_SELECTION
+}

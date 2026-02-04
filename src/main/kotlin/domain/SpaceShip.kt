@@ -10,9 +10,9 @@ data class SpaceShip(
   val texture: Texture,
   val projectileTexture: Texture,
   val info: Rectangle,
-  val speed: Float = 300f,
+  var speed: Float = 300f,
   var health: Int = 5,
-  val maxHealth: Int = 5
+  var maxHealth: Int = 5
 ) {
   private var isVictoryAnimation: Boolean = false
   private var victorySpeed: Float = 0f
@@ -69,11 +69,13 @@ data class SpaceShip(
     const val SPACE_SHIP_Y_POSITION_OFFSET = 50f
 
     fun createSpaceShipRectangle(texture: Texture): Rectangle {
+      val width = texture.width * 1.5f
+      val height = texture.height * 1.5f
       return Rectangle(
-        (Gdx.graphics.width - texture.width) / 2f,
+        (Gdx.graphics.width - width) / 2f,
         SPACE_SHIP_Y_POSITION_OFFSET,
-        texture.width.toFloat(),
-        texture.height.toFloat()
+        width,
+        height
       )
     }
   }

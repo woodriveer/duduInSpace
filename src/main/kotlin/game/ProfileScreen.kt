@@ -2,6 +2,7 @@ package br.com.woodriver.game
 
 import br.com.woodriver.DuduInSpace
 import br.com.woodriver.manager.MaterialManager
+import br.com.woodriver.screen.GameScreen
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Preferences
 import com.badlogic.gdx.Screen
@@ -60,8 +61,8 @@ class ProfileScreen(private val game: DuduInSpace) : Screen {
         }
         flightButton.addListener(object : InputListener() {
             override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                // Launch game with saved player upgrades
-                val gameScreen = SpaceShooterGame(game, currentStage, materialManager, game.playerUpgrades)
+                val gameScreen =
+                    GameScreen(game, game.playerUpgrades, game.materials, currentStage)
                 game.setScreen(gameScreen)
                 dispose()
                 return true
@@ -75,11 +76,9 @@ class ProfileScreen(private val game: DuduInSpace) : Screen {
         }
         backButton.addListener(object : InputListener() {
             override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                if (game is DuduInSpace) {
-                    val startScreen = StartScreen(game, game.playerUpgrades, game.materials)
-                    game.setScreen(startScreen)
-                    dispose()
-                }
+                val startScreen = StartScreen(game, game.playerUpgrades, game.materials)
+                game.setScreen(startScreen)
+                dispose()
                 return true
             }
         })

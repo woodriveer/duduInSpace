@@ -44,4 +44,12 @@ public enum class EnemyType {
             SPACE_SHIP -> 300
         }
     }
+
+    fun getXPValue(): Int {
+        return when (this) {
+            ASTEROID -> 20
+            UFO -> 50
+            SPACE_SHIP -> 80
+        }
+    }
 }

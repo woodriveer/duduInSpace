@@ -94,15 +94,58 @@ class Boss(
         updateExplosions(deltaTime)
     }
 
+    fun drawHealthBar(shapeRenderer: ShapeRenderer) {
+        if (!isDead) {
+            val healthPercentage = health.toFloat() / maxHealth.toFloat()
+            val barWidth = info.width
+            val barHeight = 10f
+            val barX = info.x
+            val barY = info.y + info.height + 10f
+
+            // Determine color
+            val color = when {
+                healthPercentage > 0.5f -> Color.GREEN
+                healthPercentage > 0.2f -> Color.YELLOW
+                else -> Color.RED
+            }
+
+            // Draw background (gray)
+            shapeRenderer.color = Color.GRAY
+            shapeRenderer.rect(barX, barY, barWidth, barHeight)
+
+            // Draw health
+            shapeRenderer.color = color
+            shapeRenderer.rect(barX, barY, barWidth * healthPercentage, barHeight)
+        }
+    }
+
     private fun throwAsteroid() {
+        val healthPercentage = health.toFloat() / maxHealth.toFloat()
+        val isEnraged = healthPercentage <= 0.2f
+
+        val asteroidX = info.x + info.width / 2 - asteroidSize / 2
+        
+        // Primary asteroid
         val asteroid = Rectangle(
-            info.x + info.width / 2 - asteroidSize / 2,
+            asteroidX,
             info.y,
             asteroidSize,
             asteroidSize
         )
         asteroids.add(asteroid)
         Gdx.app.log("Boss", "NEW ASTEROID CREATED - Position: ${asteroid.x}, ${asteroid.y}, Size: ${asteroid.width}x${asteroid.height}")
+
+        // Duplicate asteroid if enraged
+        if (isEnraged) {
+             val asteroid2 = Rectangle(
+                asteroidX + if (Random.nextBoolean()) 50f else -50f, // Slight offset
+                info.y + 30f, // Slight vertical offset to look like a barrage
+                asteroidSize,
+                asteroidSize
+            )
+            asteroids.add(asteroid2)
+            Gdx.app.log("Boss", "ENRAGED MODE: EXTRA ASTEROID CREATED")
+        }
     }
 
     private fun updateAsteroids(deltaTime: Float) {

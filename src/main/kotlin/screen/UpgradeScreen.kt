@@ -1,8 +1,9 @@
-package br.com.woodriver.game
+package br.com.woodriver.screen
 
 import br.com.woodriver.domain.PlayerUpgrades
 import br.com.woodriver.manager.MaterialManager
 import br.com.woodriver.DuduInSpace
+import br.com.woodriver.game.StartScreen
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.Color
@@ -19,7 +20,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter
 
 class UpgradeScreen(
-    private val game: br.com.woodriver.DuduInSpace,
+    private val game: DuduInSpace,
     private val playerUpgrades: PlayerUpgrades,
     private val materialManager: MaterialManager
 ) : Screen {
@@ -37,21 +38,14 @@ class UpgradeScreen(
         // Create skin
         skin = Skin(Gdx.files.internal("assets/skin/quantum-horizon-ui.json"))
 
-        // Generate fonts
-        val generator = FreeTypeFontGenerator(Gdx.files.internal("fonts/kenvector_future.ttf"))
-        val parameter = FreeTypeFontParameter().apply {
-            size = 24
-        }
-        font = generator.generateFont(parameter)
-        parameter.size = 36
-        titleFont = generator.generateFont(parameter)
-        generator.dispose()
+        font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
+        titleFont = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
 
         // Create styles
         val labelStyle = LabelStyle(font, Color.WHITE)
         val titleStyle = LabelStyle(titleFont, Color.WHITE)
         val buttonStyle = TextButtonStyle().apply {
-            font = font
+            font = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
             up = skin.newDrawable("white", Color.DARK_GRAY)
             down = skin.newDrawable("white", Color.GRAY)
         }

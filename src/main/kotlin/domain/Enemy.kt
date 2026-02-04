@@ -23,6 +23,7 @@ class Enemy(
     private val _bounds = Rectangle(x, y, width, height)
     val damage = type.getDamage()
     val scoreValue = type.getScoreValue()
+    val xpValue = type.getXPValue()
     var texture = Texture(type.getTexturePath())
 
     val bounds: Rectangle

@@ -14,14 +14,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Button
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.ui.Table
-import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import br.com.woodriver.domain.Materials
 import br.com.woodriver.domain.PlayerUpgrades
-import br.com.woodriver.game.GlobalSkin
-import br.com.woodriver.game.ProfileScreen
 import com.badlogic.gdx.Preferences
 import br.com.woodriver.manager.MaterialManager
+import br.com.woodriver.screen.UpgradeScreen
 
 class StartScreen(
     private val game: Game,

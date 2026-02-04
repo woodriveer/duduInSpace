@@ -1,24 +1,22 @@
 package br.com.woodriver.game
 
+import br.com.woodriver.DuduInSpace
+import br.com.woodriver.manager.MaterialManager
+import br.com.woodriver.screen.GameScreen
 import com.badlogic.gdx.Game
-import com.badlogic.gdx.Screen
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Preferences
+import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
-import com.badlogic.gdx.scenes.scene2d.ui.Button
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ScreenViewport
-import com.badlogic.gdx.Preferences
-import br.com.woodriver.DuduInSpace
-import br.com.woodriver.domain.Materials
-import br.com.woodriver.domain.PlayerUpgrades
-import br.com.woodriver.manager.MaterialManager
 
 class LevelSelectionScreen(private val game: Game) : Screen {
     private lateinit var batch: SpriteBatch
@@ -63,14 +61,9 @@ class LevelSelectionScreen(private val game: Game) : Screen {
             )
             levelButton.addListener(object : InputListener() {
                 override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
-                    // Launch game with current upgrades
                     val duduGame = game as DuduInSpace
-                    val gameScreen = SpaceShooterGame(
-                        game,
-                        i,
-                        materialManager,
-                        duduGame.playerUpgrades
-                    )
+                    val gameScreen =
+                        GameScreen(duduGame, duduGame.playerUpgrades, duduGame.materials, i)
                     game.setScreen(gameScreen)
                     dispose() // Dispose resources when transitioning to another screen
                     return true
