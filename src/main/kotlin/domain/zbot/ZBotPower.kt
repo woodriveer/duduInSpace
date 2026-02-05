@@ -3,7 +3,7 @@ package br.com.woodriver.domain.zbot
 import br.com.woodriver.domain.SpaceShip
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 
-abstract class ZBotPower(val type: ZBotPowerType, val cooldown: Float) {
+abstract class ZBotPower(val type: ZBotPowerType, var cooldown: Float) {
     protected var cooldownTimer: Float = 0f
     protected var isActive: Boolean = false
 
@@ -40,6 +40,9 @@ abstract class ZBotPower(val type: ZBotPowerType, val cooldown: Float) {
             1f - (cooldownTimer / cooldown).coerceIn(0f, 1f)
         } else 1f
     }
+
+    /** Check if power is currently active */
+    fun isActivePower(): Boolean = isActive
 
     /** Clean up resources */
     open fun dispose() {}

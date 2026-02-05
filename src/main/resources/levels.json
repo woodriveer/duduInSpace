@@ -399,6 +399,192 @@
                 "damage": 50,
                 "moveSpeed": 150.0
             }
+        },
+        {
+            "level": 19,
+            "allowedEnemies": [
+                "ASTEROID"
+            ],
+            "enemySpawnInterval": 1.5,
+            "waves": [
+                {
+                    "preset": "asteroidStorm"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                }
+            ],
+            "bossTriggerThreshold": 5,
+            "bossConfig": {
+                "texturePath": "assets/boss1.png",
+                "health": 500,
+                "damage": 50,
+                "moveSpeed": 150.0
+            }
+        },
+        {
+            "level": 20,
+            "allowedEnemies": [
+                "ASTEROID"
+            ],
+            "enemySpawnInterval": 1.5,
+            "waves": [
+                {
+                    "preset": "asteroidStorm"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                }
+            ],
+            "bossTriggerThreshold": 5,
+            "bossConfig": {
+                "texturePath": "assets/boss2.png",
+                "health": 500,
+                "damage": 50,
+                "moveSpeed": 150.0
+            }
+        },
+        {
+            "level": 21,
+            "allowedEnemies": [
+                "ASTEROID"
+            ],
+            "enemySpawnInterval": 1.5,
+            "waves": [
+                {
+                    "preset": "asteroidStorm"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                }
+            ],
+            "bossTriggerThreshold": 5,
+            "bossConfig": {
+                "texturePath": "assets/boss2.png",
+                "health": 500,
+                "damage": 50,
+                "moveSpeed": 150.0
+            }
+        },
+        {
+            "level": 22,
+            "allowedEnemies": [
+                "ASTEROID"
+            ],
+            "enemySpawnInterval": 1.5,
+            "waves": [
+                {
+                    "preset": "asteroidStorm"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                }
+            ],
+            "bossTriggerThreshold": 5,
+            "bossConfig": {
+                "texturePath": "assets/boss2.png",
+                "health": 500,
+                "damage": 50,
+                "moveSpeed": 150.0
+            }
+        },
+        {
+            "level": 23,
+            "allowedEnemies": [
+                "ASTEROID"
+            ],
+            "enemySpawnInterval": 1.5,
+            "waves": [
+                {
+                    "preset": "asteroidStorm"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                }
+            ],
+            "bossTriggerThreshold": 5,
+            "bossConfig": {
+                "texturePath": "assets/boss2.png",
+                "health": 500,
+                "damage": 50,
+                "moveSpeed": 150.0
+            }
+        },
+        {
+            "level": 24,
+            "allowedEnemies": [
+                "ASTEROID"
+            ],
+            "enemySpawnInterval": 1.5,
+            "waves": [
+                {
+                    "preset": "asteroidStorm"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                },
+                {
+                    "preset": "heavyAsteroids"
+                }
+            ],
+            "bossTriggerThreshold": 5,
+            "bossConfig": {
+                "texturePath": "assets/boss2.png",
+                "health": 500,
+                "damage": 50,
+                "moveSpeed": 150.0
+            }
         }
     ]
 }

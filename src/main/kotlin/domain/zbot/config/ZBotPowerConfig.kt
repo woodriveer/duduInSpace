@@ -7,15 +7,16 @@ import br.com.woodriver.domain.zbot.ZBotPowerType
 data class RadialPulseConfig(
         val radius: Float = 200f,
         val damage: Int = 3,
-        val cooldown: Float = 12f,
+        val baseCooldown: Float = 8f,
         val expansionSpeed: Float = 400f,
-        val duration: Float = 0.5f
+        val duration: Float = 0.5f,
+        var cooldownMultiplier: Float = 1.0f
 )
 
 enum class BulletPattern {
-    BURST_360, // All bullets at once in 360 degrees
-    SPIRAL, // Continuous rotation
-    ROTATING_BEAM // 2-4 bullets rotating
+        BURST_360, // All bullets at once in 360 degrees
+        SPIRAL, // Continuous rotation
+        ROTATING_BEAM // 2-4 bullets rotating
 }
 
 data class OrbitalStormConfig(
@@ -55,21 +56,21 @@ data class LaserSweepConfig(
 
 // Main configuration object
 object ZBotPowerConfiguration {
-    // Which powers are enabled
-    val enabledPowers: Set<ZBotPowerType> =
-            setOf(
-                    ZBotPowerType.RADIAL_PULSE,
-                    ZBotPowerType.ORBITAL_STORM
-                    // Add more powers here to enable them
-                    // ZBotPowerType.HOMING_MISSILES,
-                    // ZBotPowerType.SHIELD_MATRIX,
-                    // ZBotPowerType.LASER_SWEEP
-                    )
+        // Which powers are enabled
+        val enabledPowers: Set<ZBotPowerType> =
+                setOf(
+                        ZBotPowerType.RADIAL_PULSE,
+                        ZBotPowerType.ORBITAL_STORM
+                        // Add more powers here to enable them
+                        // ZBotPowerType.HOMING_MISSILES,
+                        // ZBotPowerType.SHIELD_MATRIX,
+                        // ZBotPowerType.LASER_SWEEP
+                        )
 
-    // Configuration for each power
-    val radialPulse = RadialPulseConfig()
-    val orbitalStorm = OrbitalStormConfig()
-    val homingMissiles = HomingMissileConfig()
-    val shieldMatrix = ShieldMatrixConfig()
-    val laserSweep = LaserSweepConfig()
+        // Configuration for each power
+        val radialPulse = RadialPulseConfig()
+        val orbitalStorm = OrbitalStormConfig()
+        val homingMissiles = HomingMissileConfig()
+        val shieldMatrix = ShieldMatrixConfig()
+        val laserSweep = LaserSweepConfig()
 }

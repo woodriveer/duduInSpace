@@ -4,6 +4,7 @@ import br.com.woodriver.domain.Boss
 import br.com.woodriver.domain.Enemy
 import br.com.woodriver.domain.PowerUp
 import br.com.woodriver.domain.SpaceShip
+import br.com.woodriver.domain.zbot.powers.RadialPulse
 import br.com.woodriver.game.GameProjectile
 import com.badlogic.gdx.math.Intersector
 
@@ -12,7 +13,8 @@ class CollisionSystem(
         private val onEnemyHit: (enemy: Enemy, projectile: GameProjectile) -> Unit,
         private val onBossHit: (boss: Boss, projectile: GameProjectile) -> Unit,
         private val onPowerUpCollected: (powerUp: PowerUp) -> Unit,
-        private val onZBotProjectileHit: (projectile: Any, target: Any) -> Unit
+        private val onZBotProjectileHit: (projectile: Any, target: Any) -> Unit,
+        private val onRadialPulseHit: (enemy: Any, damage: Int) -> Unit
 ) {
     fun checkCollisions(
             player: SpaceShip,
@@ -21,7 +23,8 @@ class CollisionSystem(
             boss: Boss?,
             powerUps: List<PowerUp>,
             zBotProjectiles:
-                    List<Any> // Using Any for now as ZBotProjectile might be in another package
+                    List<Any>, // Using Any for now as ZBotProjectile might be in another package
+            radialPulse: RadialPulse?
     ) {
         // Player vs Enemy
         ArrayList(enemies).forEach { enemy ->
@@ -80,6 +83,36 @@ class CollisionSystem(
             }
         }
 
-        // ZBot Projectiles (Future implementation logic)
+        // ZBot Radial Pulse vs Enemies
+        radialPulse?.let { pulse ->
+            if (pulse.isActivePower()) {
+                val damage = pulse.getDamage()
+
+                // Check enemies
+                ArrayList(enemies).forEach { enemy ->
+                    if (pulse.isAsteroidInPulse(
+                                    enemy.x + enemy.width / 2,
+                                    enemy.y + enemy.height / 2
+                            )
+                    ) {
+                        // Check if this enemy was already hit by this pulse activation
+                        if (!pulse.hasHitEntity(enemy)) {
+                            pulse.markEntityAsHit(enemy)
+                            onRadialPulseHit(enemy, damage)
+                        }
+                    }
+                }
+
+                // Check boss
+                boss?.let { b ->
+                    if (pulse.isAsteroidInPulse(b.x + b.width / 2, b.y + b.height / 2)) {
+                        if (!pulse.hasHitEntity(b)) {
+                            pulse.markEntityAsHit(b)
+                            onRadialPulseHit(b, damage)
+                        }
+                    }
+                }
+            }
+        }
     }
 }

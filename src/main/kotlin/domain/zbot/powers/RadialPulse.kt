@@ -12,11 +12,12 @@ class RadialPulse(
         private val config: RadialPulseConfig,
         private val zbot: ZBot,
         private val ship: SpaceShip
-) : ZBotPower(ZBotPowerType.RADIAL_PULSE, config.cooldown) {
+) : ZBotPower(ZBotPowerType.RADIAL_PULSE, config.baseCooldown * config.cooldownMultiplier) {
 
     private var currentRadius: Float = 0f
     private var pulseAge: Float = 0f
     private val shapeRenderer = ShapeRenderer()
+    private val hitEntities = mutableSetOf<Any>()
 
     override fun update(delta: Float, zbot: ZBot, ship: SpaceShip) {
         super.update(delta, zbot, ship)
@@ -29,6 +30,7 @@ class RadialPulse(
                 isActive = false
                 currentRadius = 0f
                 pulseAge = 0f
+                hitEntities.clear() // Clear hit entities when pulse ends
             }
         }
     }
@@ -59,6 +61,7 @@ class RadialPulse(
     override fun onActivate() {
         currentRadius = 0f
         pulseAge = 0f
+        hitEntities.clear() // Clear hit entities for new pulse
         // Sound effect would be played here
     }
 
@@ -74,6 +77,19 @@ class RadialPulse(
     }
 
     fun getDamage(): Int = config.damage
+
+    fun hasHitEntity(entity: Any): Boolean = hitEntities.contains(entity)
+
+    fun markEntityAsHit(entity: Any) {
+        hitEntities.add(entity)
+    }
+
+    /** Update cooldown multiplier (called when ZBOT_OVERCHARGE upgrade is applied) */
+    fun updateCooldownMultiplier(multiplier: Float) {
+        config.cooldownMultiplier = multiplier
+        // Update the cooldown in the parent class
+        this.cooldown = config.baseCooldown * config.cooldownMultiplier
+    }
 
     override fun dispose() {
         shapeRenderer.dispose()

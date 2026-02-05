@@ -135,7 +135,7 @@ class SpaceShooterGame(
 
     private var gameState: GameState = PLAYING
     private val runStats = RunStats()
-    private lateinit var zBot: ZBot
+    private var zBot: ZBot? = null
     private val inputHandler: InputHandler = UnifiedInputManager()
 
     private val preferences: Preferences = Gdx.app.getPreferences("DuduInSpace")
@@ -331,7 +331,7 @@ class SpaceShooterGame(
                         levelNumber = levelNumber
                 )
 
-        zBot = ZBot(playerShip)
+        // ZBot is now unlocked via DEPLOY_ZBOT upgrade, not by default
 
         // Initialize Systems
         collisionSystem =
@@ -415,7 +415,58 @@ class SpaceShooterGame(
                             applyPowerUp(powerUp.type)
                             powerUps.remove(powerUp)
                         },
-                        onZBotProjectileHit = { _, _ -> }
+                        onZBotProjectileHit = { _, _ -> },
+                        onRadialPulseHit = { target, damage ->
+                            when (target) {
+                                is Enemy -> {
+                                    if (target.takeDamage(damage)) {
+                                        destroyedAsteroids++
+                                        val rewardAmount =
+                                                when (target.type) {
+                                                    EnemyType.ASTEROID -> 1
+                                                    EnemyType.UFO -> 3
+                                                    EnemyType.SPACE_SHIP -> 5
+                                                    else -> 1
+                                                }
+                                        val (dropped, result) =
+                                                materialManager.handleMaterialDrop(
+                                                        target.x,
+                                                        target.y,
+                                                        rewardAmount
+                                                )
+                                        if (dropped) {
+                                            val (amount, position) = result
+                                            totalMaterialsGained += amount
+                                            game.materials.add(amount)
+                                            game.materials.save(preferences)
+                                            spawnMaterialDropNumber(
+                                                    x = position.first,
+                                                    y = position.second
+                                            )
+                                        }
+                                        if (runStats.addXP(target.xpValue)) {
+                                            baseProjectileDamage += 2
+                                            gameState = UPGRADE_SELECTION
+                                        }
+                                        activeEnemies.remove(target)
+                                        enemyPool.free(target)
+                                    }
+                                    spawnDamageNumber(damage, target.x, target.y)
+                                }
+                                is Boss -> {
+                                    if (target.takeDamage(damage)) {
+                                        isBossSpawned = false
+                                        levelManager.onBossDefeated()
+                                        val bossReward = 50
+                                        game.materials.add(bossReward)
+                                        game.materials.save(preferences)
+                                        totalMaterialsGained += bossReward
+                                        handleLevelCompletion(delta = 0f)
+                                    }
+                                    spawnDamageNumber(damage, target.x, target.y)
+                                }
+                            }
+                        }
                 )
 
         renderSystem = RenderSystem(batch, shapeRenderer)
@@ -459,7 +510,7 @@ class SpaceShooterGame(
         // Modular Update Logic
         playerShip.update(delta)
         val asteroidBounds = activeEnemies.map { Rectangle(it.x, it.y, it.width, it.height) }
-        zBot.update(delta, asteroidBounds)
+        zBot?.update(delta, asteroidBounds)
         updatePowerUpTimers(delta)
         handlePlayerMovement(delta)
         handleShooting(delta)
@@ -500,13 +551,20 @@ class SpaceShooterGame(
         )
 
         // Modular Collision Checks
+        val radialPulse =
+                zBot?.powerManager?.getPower(
+                        br.com.woodriver.domain.zbot.ZBotPowerType.RADIAL_PULSE
+                ) as?
+                        br.com.woodriver.domain.zbot.powers.RadialPulse
+
         collisionSystem.checkCollisions(
                 playerShip,
                 activeEnemies,
                 activeProjectiles,
                 if (isBossSpawned) boss else null,
                 powerUps,
-                emptyList()
+                emptyList(),
+                radialPulse
         )
 
         batch.begin()
@@ -881,7 +939,7 @@ class SpaceShooterGame(
         val enemiesToRemove = mutableListOf<Enemy>()
 
         // Use snapshots to avoid ConcurrentModificationException
-        val currentZBotProjectiles = ArrayList(zBot.powerManager.projectiles)
+        val currentZBotProjectiles = ArrayList(zBot?.powerManager?.projectiles ?: emptyList())
         val currentEnemies = ArrayList(activeEnemies)
 
         currentZBotProjectiles.forEach { projectile ->
@@ -1199,7 +1257,7 @@ class SpaceShooterGame(
 
             // Dispose Z-Bot
             try {
-                if (::zBot.isInitialized) zBot.dispose()
+                zBot?.dispose()
             } catch (e: Exception) {
                 Gdx.app.error(TAG, "Error disposing Z-Bot: ${e.message}")
             }
@@ -1210,7 +1268,35 @@ class SpaceShooterGame(
 
     private fun drawUpgradeOverlay() {
         if (currentUpgradeOptions.isEmpty()) {
-            currentUpgradeOptions = MidRunUpgrade.getRandomUpgrades(3)
+            val excludeList = mutableListOf<MidRunUpgradeType>()
+
+            if (zBot == null) {
+                // If ZBot not deployed, only show DEPLOY_ZBOT from the ZBot pool
+                excludeList.add(MidRunUpgradeType.ZBOT_OVERCHARGE)
+                excludeList.add(MidRunUpgradeType.ZBOT_ORBITAL_STORM)
+                excludeList.add(MidRunUpgradeType.ZBOT_MAGNET)
+            } else {
+                // If ZBot is deployed, don't show DEPLOY_ZBOT anymore
+                excludeList.add(MidRunUpgradeType.DEPLOY_ZBOT)
+
+                // Exclude upgrades that are already acquired (one-time upgrades)
+                if (runStats.hasUpgrade(MidRunUpgradeType.ZBOT_OVERCHARGE)) {
+                    excludeList.add(MidRunUpgradeType.ZBOT_OVERCHARGE)
+                }
+                if (runStats.hasUpgrade(MidRunUpgradeType.ZBOT_ORBITAL_STORM)) {
+                    excludeList.add(MidRunUpgradeType.ZBOT_ORBITAL_STORM)
+                }
+            }
+
+            // Also exclude other one-time upgrades if already taken
+            if (runStats.hasUpgrade(MidRunUpgradeType.PIERCING_LASER)) {
+                excludeList.add(MidRunUpgradeType.PIERCING_LASER)
+            }
+            if (runStats.hasUpgrade(MidRunUpgradeType.SHIELD_REGEN)) {
+                excludeList.add(MidRunUpgradeType.SHIELD_REGEN)
+            }
+
+            currentUpgradeOptions = MidRunUpgrade.getRandomUpgrades(3, excludeList)
         }
 
         Gdx.gl.glEnable(GL20.GL_BLEND)
@@ -1296,6 +1382,23 @@ class SpaceShooterGame(
                 playerShip.health += 2
             }
             MidRunUpgradeType.ADDITIONAL_SHOT -> baseShotCount++
+            MidRunUpgradeType.DEPLOY_ZBOT -> {
+                if (zBot == null) {
+                    zBot = ZBot(playerShip)
+                    Gdx.app.log(TAG, "Z-Bot deployed!")
+                }
+            }
+            MidRunUpgradeType.ZBOT_OVERCHARGE -> {
+                zBot?.let { bot ->
+                    val radialPulse =
+                            bot.powerManager.getPower(
+                                    br.com.woodriver.domain.zbot.ZBotPowerType.RADIAL_PULSE
+                            ) as?
+                                    br.com.woodriver.domain.zbot.powers.RadialPulse
+                    radialPulse?.updateCooldownMultiplier(0.5f)
+                    Gdx.app.log(TAG, "Z-Bot Overcharged! Pulse frequency increased by 50%")
+                }
+            }
             else -> {
                 /* Other upgrades handled in update/logic loops */
             }
