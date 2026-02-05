@@ -1,12 +1,11 @@
 package br.com.woodriver.domain
 
-import com.badlogic.gdx.Gdx
 import kotlin.random.Random
 
 class EnemySpawner(
-    private val screenWidth: Float,
-    private val screenHeight: Float,
-    private val levelConfig: LevelConfig
+        private val screenWidth: Float,
+        private val screenHeight: Float,
+        private val levelConfig: LevelConfig
 ) {
     private var spawnTimer: Float = 0f
     private var waveIndex = 0
@@ -42,15 +41,18 @@ class EnemySpawner(
     }
 
     private fun spawnEnemy(wave: Wave): Enemy {
-        val x = when (wave.choreography) {
-            Choreography.FROM_LEFT -> 0f
-            Choreography.FROM_RIGHT -> screenWidth
-            Choreography.FROM_TOP -> Random.nextFloat() * screenWidth
-        }
+        val x =
+                when (wave.choreography) {
+                    Choreography.FROM_LEFT -> 0f
+                    Choreography.FROM_RIGHT -> screenWidth
+                    Choreography.FROM_TOP -> Random.nextFloat() * screenWidth
+                }
         return Enemy.create(
-            type = wave.enemyType,
-            x = x,
-            y = screenHeight
+                type = wave.enemyType ?: EnemyType.ASTEROID,
+                x = x,
+                y = screenHeight,
+                healthMultiplier = wave.healthMultiplier,
+                isMiniBoss = wave.isMiniBoss
         )
     }
 

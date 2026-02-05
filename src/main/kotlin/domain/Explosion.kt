@@ -6,12 +6,12 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 
 class Explosion(
-    texture: Texture,
-    private val frameCols: Int,
-    private val frameRows: Int,
-    frameDuration: Float,
-    val width: Float,
-    val height: Float
+        texture: Texture,
+        private val frameCols: Int,
+        private val frameRows: Int,
+        frameDuration: Float,
+        val width: Float,
+        val height: Float
 ) {
     private val animation: Animation<TextureRegion>
     private var stateTime = 0f
@@ -21,11 +21,9 @@ class Explosion(
         private set
 
     init {
-        val tmp = TextureRegion.split(
-            texture,
-            texture.width / frameCols,
-            texture.height / frameRows
-        )
+        val tileWidth = if (texture.width > 0) Math.max(1, texture.width / frameCols) else 1
+        val tileHeight = if (texture.height > 0) Math.max(1, texture.height / frameRows) else 1
+        val tmp = TextureRegion.split(texture, tileWidth, tileHeight)
 
         val frames = arrayOfNulls<TextureRegion>(frameCols * frameRows)
         var index = 0

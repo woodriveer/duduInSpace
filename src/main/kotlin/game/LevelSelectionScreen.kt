@@ -3,6 +3,7 @@ package br.com.woodriver.game
 import br.com.woodriver.DuduInSpace
 import br.com.woodriver.manager.MaterialManager
 import br.com.woodriver.screen.GameScreen
+import br.com.woodriver.screen.StartScreen
 import com.badlogic.gdx.Game
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Preferences

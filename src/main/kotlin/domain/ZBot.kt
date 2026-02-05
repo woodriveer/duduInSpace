@@ -1,7 +1,9 @@
 package br.com.woodriver.domain
 
+import br.com.woodriver.domain.zbot.ZBotPowerManager
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.math.Rectangle
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -14,7 +16,10 @@ class ZBot(val ship: SpaceShip) {
     private val orbitRadius = 80f
     private val orbitSpeed = 2f
 
-    fun update(delta: Float) {
+    // Power system
+    val powerManager: ZBotPowerManager = ZBotPowerManager(this, ship)
+
+    fun update(delta: Float, asteroidBounds: List<Rectangle> = emptyList()) {
         angle += orbitSpeed * delta
 
         animation.update(delta)
@@ -26,13 +31,20 @@ class ZBot(val ship: SpaceShip) {
         // Smoothly follow (Lerp)
         x += (targetX - x) * 5f * delta
         y += (targetY - y) * 5f * delta
+
+        // Update power system
+        powerManager.update(delta, asteroidBounds)
     }
 
     fun draw(batch: SpriteBatch) {
         animation.draw(batch, x - 16f, y - 16f, 32f, 32f)
+
+        // Draw power effects
+        powerManager.draw(batch)
     }
 
     fun dispose() {
         texture.dispose()
+        powerManager.dispose()
     }
 }

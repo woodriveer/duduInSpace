@@ -5,9 +5,9 @@ import br.com.woodriver.domain.EnemySpawner
 import br.com.woodriver.repository.LevelRepository
 
 class LevelManager(
-    private val screenWidth: Float,
-    private val screenHeight: Float,
-    private val levelNumber: Int = 1
+        private val screenWidth: Float,
+        private val screenHeight: Float,
+        private val levelNumber: Int = 1
 ) {
     private val levelRepository = LevelRepository()
     private val levelConfig = levelRepository.getLevelConfig(levelNumber)
@@ -17,7 +17,9 @@ class LevelManager(
 
     fun update(delta: Float): Enemy? {
         if (enemySpawner.isWaveFinished() && !bossFightTriggered) {
-            if (levelConfig.bossTriggerThreshold > 0 && levelConfig.waves.size >= levelConfig.bossTriggerThreshold) {
+            if (levelConfig.bossTriggerThreshold > 0 &&
+                            levelConfig.waves.size >= levelConfig.bossTriggerThreshold
+            ) {
                 bossFightTriggered = true
             } else {
                 levelFinished = true
@@ -33,4 +35,6 @@ class LevelManager(
     }
 
     fun isLevelCompleting(): Boolean = levelFinished
+
+    fun getLevelConfig() = levelConfig
 }

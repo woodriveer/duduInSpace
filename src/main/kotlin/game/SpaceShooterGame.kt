@@ -2,6 +2,7 @@ package br.com.woodriver.game
 
 import br.com.woodriver.DuduInSpace
 import br.com.woodriver.domain.Boss
+import br.com.woodriver.domain.BossConfig
 import br.com.woodriver.domain.DamageNumber
 import br.com.woodriver.domain.Enemy
 import br.com.woodriver.domain.EnemyType
@@ -14,17 +15,24 @@ import br.com.woodriver.domain.PlayerUpgrades.UpgradeType
 import br.com.woodriver.domain.PowerUp
 import br.com.woodriver.domain.PowerUpType
 import br.com.woodriver.domain.RunStats
+import br.com.woodriver.domain.ShipClass
 import br.com.woodriver.domain.SpaceShip
 import br.com.woodriver.domain.SpaceShip.Companion.createSpaceShipRectangle
+import br.com.woodriver.domain.WeaponType
 import br.com.woodriver.domain.ZBot
 import br.com.woodriver.game.GameState.GAME_OVER
 import br.com.woodriver.game.GameState.PLAYING
 import br.com.woodriver.game.GameState.TRANSITIONING
 import br.com.woodriver.game.GameState.UPGRADE_SELECTION
 import br.com.woodriver.game.GameState.VICTORY_ANIMATION
+import br.com.woodriver.game.systems.CollisionSystem
+import br.com.woodriver.game.systems.HUDSystem
+import br.com.woodriver.game.systems.RenderSystem
+import br.com.woodriver.input.InputHandler
+import br.com.woodriver.input.UnifiedInputManager
 import br.com.woodriver.manager.LevelManager
 import br.com.woodriver.manager.MaterialManager
-import com.badlogic.gdx.Game
+import br.com.woodriver.screen.ProfileScreen
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.Preferences
@@ -37,13 +45,27 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
-import com.badlogic.gdx.math.Intersector
 import com.badlogic.gdx.math.Rectangle
 import kotlin.math.max
 import kotlin.math.min
 
+class GameProjectile : Rectangle() {
+    var isPiercing: Boolean = false
+    var piercingCount: Int = 0
+    val hitEntities = mutableSetOf<Any>()
+
+    fun resetProjectile(textureWidth: Float, textureHeight: Float) {
+        x = 0f
+        y = 0f
+        width = textureWidth
+        height = textureHeight
+        isPiercing = false
+        hitEntities.clear()
+    }
+}
+
 class SpaceShooterGame(
-        private val game: Game,
+        private val game: DuduInSpace,
         private val levelNumber: Int,
         private val materialManager: MaterialManager,
         private val playerUpgrades: PlayerUpgrades
@@ -74,10 +96,13 @@ class SpaceShooterGame(
     private var projectileSpeed: Float = 500f
     private var projectileCooldown: Float = DEFAULT_PROJECTILE_COOLDOWN
     private var lastProjectileTime: Float = 0f
-    private var isTripleShotActive: Boolean = false
+    private var baseShotCount: Int = 2
+    private var isTripleShotPowerUpActive: Boolean = false
     private var isBiggerProjectilesActive: Boolean = false
     private var powerUpTimer: Float = 0f
     private val powerUpDuration: Float = 10f
+    private var recoveryTimer: Float = 0f
+    private val recoveryInterval: Float = 30f
     private lateinit var boss: Boss
     private var isBossFight = false
     private var isBossSpawned = false
@@ -94,7 +119,7 @@ class SpaceShooterGame(
 
     private lateinit var font: BitmapFont
     private var destroyedAsteroids: Int = 0
-    private var materialsGained: Int = 0
+    private var totalMaterialsGained: Int = 0
     private lateinit var spaceShipTexture: Texture
     private lateinit var projectileTexture: Texture
     private lateinit var asteroidTexture: Texture
@@ -103,22 +128,28 @@ class SpaceShooterGame(
     private lateinit var damageFont: BitmapFont
     private val materialDropNumbers = mutableListOf<DamageNumber>()
 
+    // Modular Systems
+    private lateinit var collisionSystem: CollisionSystem
+    private lateinit var renderSystem: RenderSystem
+    private lateinit var hudSystem: HUDSystem
+
     private var gameState: GameState = PLAYING
     private val runStats = RunStats()
     private lateinit var zBot: ZBot
+    private val inputHandler: InputHandler = UnifiedInputManager()
 
-    private val preferences: Preferences = Gdx.app.getPreferences("SpaceShooterProgress")
+    private val preferences: Preferences = Gdx.app.getPreferences("DuduInSpace")
 
     // Object pools
     private val projectilePool =
             ObjectPool(
                     maxSize = MAX_PROJECTILES,
-                    factory = { Rectangle() },
-                    reset = { rect ->
-                        rect.x = 0f
-                        rect.y = 0f
-                        rect.width = projectileTexture.width.toFloat()
-                        rect.height = projectileTexture.height.toFloat()
+                    factory = { GameProjectile() },
+                    reset = { proj ->
+                        proj.resetProjectile(
+                                projectileTexture.width.toFloat(),
+                                projectileTexture.height.toFloat()
+                        )
                     }
             )
 
@@ -130,14 +161,14 @@ class SpaceShooterGame(
             )
 
     private val enemyPool =
-            ObjectPool<Enemy>(
+            ObjectPool(
                     maxSize = MAX_ENEMIES,
                     factory = { Enemy.create(EnemyType.ASTEROID, 0f, 0f) },
                     reset = {}
             )
 
     // Active objects lists (replace existing lists)
-    private val activeProjectiles = mutableListOf<Rectangle>()
+    private val activeProjectiles = mutableListOf<GameProjectile>()
     private val activeDamageNumbers = mutableListOf<DamageNumber>()
     private val activeEnemies = mutableListOf<Enemy>()
 
@@ -210,7 +241,15 @@ class SpaceShooterGame(
         val skinFiles = listOf("spaceship-01.png", "enemy_ship.png", "ufo.png")
         val skinIndex = min(skinLevel, skinFiles.size - 1)
         val chosenSkin = skinFiles[skinIndex]
-        spaceShipTexture = Texture("assets/$chosenSkin")
+
+        // Overwrite skin if a specific ship class is selected (ignoring skin upgrade for
+        // non-assault ships for now)
+        val shipClass = game.selectedShipClass
+        val textureToLoad =
+                if (shipClass != ShipClass.ASSAULT) shipClass.texturePath.removePrefix("assets/")
+                else chosenSkin
+
+        spaceShipTexture = Texture("assets/$textureToLoad")
         projectileTexture = Texture("assets/projectile-01.png")
         asteroidTexture = Texture("assets/asteroid-01.png")
         attackSound = Gdx.audio.newSound(Gdx.files.internal("assets/sound/spaceship_attack_2.mp3"))
@@ -272,8 +311,11 @@ class SpaceShooterGame(
                         createSpaceShipRectangle(spaceShipTexture),
                         speed = upgradedSpeed,
                         health = upgradedHealth,
-                        maxHealth = upgradedHealth
+                        maxHealth = upgradedHealth,
+                        shipClass = shipClass
                 )
+
+        projectileCooldown = shipClass.fireRate
 
         enemyShip = asteroidTexture
 
@@ -291,6 +333,96 @@ class SpaceShooterGame(
 
         zBot = ZBot(playerShip)
 
+        // Initialize Systems
+        collisionSystem =
+                CollisionSystem(
+                        onPlayerHit = { damage -> if (playerShip.takeDamage(damage)) gameOver() },
+                        onEnemyHit = { enemy, projectile ->
+                            if (enemy.takeDamage(
+                                            (if (isBiggerProjectilesActive) biggerProjectileDamage
+                                            else baseProjectileDamage) *
+                                                    playerShip.shipClass.damageMultiplier.toInt()
+                                    )
+                            ) {
+                                destroyedAsteroids++
+                                val rewardAmount =
+                                        when (enemy.type) {
+                                            EnemyType.ASTEROID -> 1
+                                            EnemyType.UFO -> 3
+                                            EnemyType.SPACE_SHIP -> 5
+                                            else -> 1
+                                        }
+                                val (dropped, result) =
+                                        materialManager.handleMaterialDrop(
+                                                enemy.x,
+                                                enemy.y,
+                                                rewardAmount
+                                        )
+                                if (dropped) {
+                                    val (amount, position) = result
+                                    totalMaterialsGained += amount
+                                    game.materials.add(amount)
+                                    game.materials.save(preferences)
+                                    spawnMaterialDropNumber(x = position.first, y = position.second)
+                                }
+                                if (runStats.addXP(enemy.xpValue)) {
+                                    baseProjectileDamage += 2 // Permanent damage increase per level
+                                    gameState = UPGRADE_SELECTION
+                                }
+                                activeEnemies.remove(enemy)
+                                enemyPool.free(enemy)
+                            }
+                            spawnDamageNumber(projectile.width.toInt(), projectile.x, projectile.y)
+                            if (projectile.isPiercing) {
+                                projectile.piercingCount--
+                                if (projectile.piercingCount < 0) {
+                                    activeProjectiles.remove(projectile)
+                                    projectilePool.free(projectile)
+                                }
+                            } else {
+                                activeProjectiles.remove(projectile)
+                                projectilePool.free(projectile)
+                            }
+                        },
+                        onBossHit = { b, projectile ->
+                            val damage =
+                                    (if (isBiggerProjectilesActive) biggerProjectileDamage
+                                    else baseProjectileDamage) *
+                                            playerShip.shipClass.damageMultiplier.toInt()
+                            if (b.takeDamage(damage)) {
+                                isBossSpawned = false
+                                levelManager.onBossDefeated()
+                                // Boss reward
+                                val bossReward = 50
+                                game.materials.add(bossReward)
+                                game.materials.save(preferences)
+                                totalMaterialsGained += bossReward
+                                handleLevelCompletion(delta = 0f) // Simplified for refactor
+                            }
+                            spawnDamageNumber(damage, projectile.x, projectile.y)
+                            if (projectile.isPiercing) {
+                                projectile.piercingCount--
+                                if (projectile.piercingCount < 0) {
+                                    activeProjectiles.remove(projectile)
+                                    projectilePool.free(projectile)
+                                }
+                            } else {
+                                activeProjectiles.remove(projectile)
+                                projectilePool.free(projectile)
+                            }
+                        },
+                        onPowerUpCollected = { powerUp ->
+                            applyPowerUp(powerUp.type)
+                            powerUps.remove(powerUp)
+                        },
+                        onZBotProjectileHit = { _, _ -> }
+                )
+
+        renderSystem = RenderSystem(batch, shapeRenderer)
+        renderSystem.initStarfield(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
+
+        hudSystem = HUDSystem(batch, shapeRenderer, font)
+
         Gdx.app.log(TAG, "Game initialized successfully")
     }
 
@@ -300,8 +432,8 @@ class SpaceShooterGame(
         performanceLogTimer += delta
         collisionChecksPerFrame = 0
 
-        // Check for performance info toggle (F3 key)
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
+        // Check for performance info toggle
+        if (inputHandler.isTogglePerformance()) {
             showPerformanceInfo = !showPerformanceInfo
             preferences.putBoolean("show_performance_info", showPerformanceInfo)
             preferences.flush()
@@ -312,8 +444,7 @@ class SpaceShooterGame(
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
 
         // Animate and render starfield background
-        updateStars(delta)
-        drawStars()
+        renderSystem.updateStars(delta)
 
         if (gameState == UPGRADE_SELECTION) {
             drawUpgradeOverlay()
@@ -325,158 +456,73 @@ class SpaceShooterGame(
             return
         }
 
-        // Update game state
+        // Modular Update Logic
         playerShip.update(delta)
-        zBot.update(delta)
+        val asteroidBounds = activeEnemies.map { Rectangle(it.x, it.y, it.width, it.height) }
+        zBot.update(delta, asteroidBounds)
         updatePowerUpTimers(delta)
         handlePlayerMovement(delta)
         handleShooting(delta)
         spawnPowerUps(delta)
         updateProjectiles(delta)
+        updateRecovery(delta)
 
-        // Update enemies and boss
-        // Update enemies and boss
+        // Entity Internal Updates
+        activeEnemies.forEach { it.update(delta) }
+        if (::boss.isInitialized) boss.update(delta)
+        powerUps.forEach { it.update(delta) }
+
         levelManager.update(delta)?.let { newEnemy -> activeEnemies.add(newEnemy) }
 
         if (levelManager.isBossFight() && !isBossFight) {
             isBossFight = true
             isBossSpawned = true
-            boss = Boss.create(Gdx.graphics.width / 2f, Gdx.graphics.height.toFloat())
+            val levelConfig = levelManager.getLevelConfig()
+            boss =
+                    Boss.create(
+                            Gdx.graphics.width / 2f,
+                            Gdx.graphics.height.toFloat(),
+                            levelConfig.bossConfig ?: BossConfig()
+                    )
         }
+
+        // Modular Rendering
+        renderSystem.render(
+                playerShip,
+                activeEnemies,
+                activeProjectiles,
+                if (isBossSpawned) boss else null,
+                powerUps,
+                zBot,
+                activeDamageNumbers,
+                materialDropNumbers,
+                delta
+        )
+
+        // Modular Collision Checks
+        collisionSystem.checkCollisions(
+                playerShip,
+                activeEnemies,
+                activeProjectiles,
+                if (isBossSpawned) boss else null,
+                powerUps,
+                emptyList()
+        )
 
         batch.begin()
+        // Handle ZBot projectile collisions (still legacy for now)
+        handleZBotProjectileCollisions()
 
-        // Draw player
-        try {
-            if (!gameOverPending) {
-                playerShip.draw(batch)
-                zBot.draw(batch)
-            }
-        } catch (e: Exception) {
-            Gdx.app.error(TAG, "Error drawing player: ${e.message}", e)
-        }
-        updateBoss(delta)
-        updateEnemies(delta) // Call updateEnemies here
-        updatePowerUps(delta)
-
-        // Draw projectiles
-        activeProjectiles.forEach { projectile ->
-            // combine power-up size and upgrade size
-            val powerUpScale = if (isBiggerProjectilesActive) 1.5f else 1f
-            val scale = powerUpScale * bulletSizeScale
-            try {
-                if (!disposed) {
-                    batch.draw(
-                            playerShip.projectileTexture,
-                            if (isBiggerProjectilesActive) biggerProjectileCorrection(projectile)
-                            else projectile.x,
-                            projectile.y,
-                            projectile.width * scale,
-                            projectile.height * scale
-                    )
-                }
-            } catch (e: Exception) {
-                Gdx.app.error(TAG, "Error drawing projectile: ${e.message}", e)
-                // Continue with the next projectile
-            }
-        }
-
-        // Draw enemies
-        activeEnemies.forEach { enemy ->
-            try {
-                if (!disposed) {
-                    batch.draw(enemy.texture, enemy.x, enemy.y, enemy.width, enemy.height)
-                }
-            } catch (e: Exception) {
-                Gdx.app.error("SpaceShooterGame", "Error drawing enemy: ${e.message}", e)
-                // Continue with the next enemy
-            }
-        }
-
-        // Draw power-ups
-        powerUps.forEach { powerUp ->
-            try {
-                if (!disposed) {
-                    powerUp.update(delta)
-                    powerUp.draw(batch)
-                }
-            } catch (e: Exception) {
-                Gdx.app.error(TAG, "Error updating/drawing power-up: ${e.message}", e)
-                // Continue with the next power-up
-            }
-        }
-
-        // Draw damage numbers
-        activeDamageNumbers.forEach { damageNumber ->
-            try {
-                if (!disposed) {
-                    damageNumber.draw(batch)
-                }
-            } catch (e: Exception) {
-                Gdx.app.error(TAG, "Error drawing damage number: ${e.message}", e)
-                // Continue with the next damage number
-            }
-        }
-
-        // Draw material drop numbers
-        materialDropNumbers.forEach { materialNumber ->
-            try {
-                if (!disposed) {
-                    materialNumber.draw(batch)
-                }
-            } catch (e: Exception) {
-                Gdx.app.error(TAG, "Error drawing material drop number: ${e.message}", e)
-            }
-        }
-
-        // Draw UI
-        try {
-            if (!disposed) {
-                // Draw semi-transparent background for HUD
-                batch.end()
-                Gdx.gl.glEnable(GL20.GL_BLEND)
-                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-                shapeRenderer.color = Color(0f, 0f, 0f, 0.4f)
-                shapeRenderer.rect(5f, Gdx.graphics.height - 95f, 250f, 90f)
-                shapeRenderer.end()
-                batch.begin()
-
-                font.color = Color.GOLD
-                font.draw(
-                        batch,
-                        "Asteroids Destroyed: $destroyedAsteroids",
-                        10f,
-                        Gdx.graphics.height - 20f
-                )
-                font.draw(
-                        batch,
-                        "Materials Gained: $materialsGained",
-                        10f,
-                        Gdx.graphics.height - 50f
-                )
-                font.color = if (playerShip.health <= 2) Color.RED else Color.GREEN
-                font.draw(
-                        batch,
-                        "Health: ${playerShip.health}/${playerShip.maxHealth}",
-                        10f,
-                        Gdx.graphics.height - 80f
-                )
-                font.color = Color.WHITE
-                if (isTripleShotActive ||
-                                isBiggerProjectilesActive ||
-                                projectileCooldown < DEFAULT_PROJECTILE_COOLDOWN
-                ) {
-                    font.draw(batch, "Power-up active!", 10f, Gdx.graphics.height - 110f)
-                }
-
-                // XP Bar - Moved outside batch for safety
-                batch.end()
-                drawXPBar()
-                batch.begin()
-            }
-        } catch (e: Exception) {
-            Gdx.app.error(TAG, "Error drawing UI: ${e.message}", e)
-        }
+        // Modular HUD Rendering
+        hudSystem.render(
+                playerShip,
+                runStats,
+                destroyedAsteroids,
+                totalMaterialsGained,
+                isTripleShotPowerUpActive ||
+                        isBiggerProjectilesActive ||
+                        projectileCooldown < DEFAULT_PROJECTILE_COOLDOWN
+        )
 
         // Draw performance metrics (smaller and in right corner)
         if (showPerformanceInfo) {
@@ -679,32 +725,11 @@ class SpaceShooterGame(
 
     private fun resetPowerUps() {
         projectileCooldown = DEFAULT_PROJECTILE_COOLDOWN
-        isTripleShotActive = false
+        isTripleShotPowerUpActive = false
         isBiggerProjectilesActive = false
     }
 
     // Update star positions for moving starfield background
-    private fun updateStars(delta: Float) {
-        stars.forEach { star ->
-            star.y -= star.speed * delta
-            if (star.y < 0f) {
-                star.y = screenHeight
-                star.x = Math.random().toFloat() * screenWidth
-            }
-        }
-    }
-
-    // Draw stars as small white dots using the ShapeRenderer
-    private fun drawStars() {
-        // Use same projection as batch for correct screen coordinates
-        if (::shapeRenderer.isInitialized) {
-            shapeRenderer.projectionMatrix = batch.projectionMatrix
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-            shapeRenderer.color = Color.WHITE
-            stars.forEach { star -> shapeRenderer.rect(star.x, star.y, 2f, 2f) }
-            shapeRenderer.end()
-        }
-    }
 
     private fun spawnPowerUps(delta: Float) {
         powerUpSpawnTimer += delta
@@ -725,23 +750,6 @@ class SpaceShooterGame(
         }
     }
 
-    private fun updatePowerUps(delta: Float) {
-        // Move power-ups down
-        powerUps.forEach { powerUp ->
-            powerUp.info.y -= 100 * delta
-
-            // Check collision with player
-            if (Intersector.overlaps(powerUp.info, playerShip.info)) {
-                applyPowerUp(powerUp.type)
-                powerUps.remove(powerUp)
-                return
-            }
-        }
-
-        // Remove power-ups that are off-screen
-        powerUps.removeAll { it.info.y + it.info.height < 0 }
-    }
-
     private fun applyPowerUp(type: PowerUpType) {
         powerUpTimer = powerUpDuration
         when (type) {
@@ -750,7 +758,7 @@ class SpaceShooterGame(
                 Gdx.app.log(TAG, "Power-up activated: Faster Shooting")
             }
             PowerUpType.TRIPLE_SHOT -> {
-                isTripleShotActive = true
+                isTripleShotPowerUpActive = true
                 Gdx.app.log(TAG, "Power-up activated: Triple Shot")
             }
             PowerUpType.BIGGER_PROJECTILES -> {
@@ -768,16 +776,51 @@ class SpaceShooterGame(
 
         lastProjectileTime += deltaTime
 
-        if (Gdx.input.isKeyPressed(Input.Keys.SPACE) && lastProjectileTime >= projectileCooldown) {
-            if (isTripleShotActive) {
-                // Create three projectiles in a spread pattern
-                for (i in -1..1) {
-                    val offset = i * 20f
-                    spawnProjectile(playerShip.info.x + offset, playerShip.info.y)
+        if (inputHandler.isShooting() && lastProjectileTime >= projectileCooldown) {
+            val shipClass = playerShip.shipClass
+            val isPiercing =
+                    shipClass.weaponType == WeaponType.PIERCING ||
+                            runStats.hasUpgrade(MidRunUpgradeType.PIERCING_LASER)
+
+            // Determine number of shots based on power-ups and class
+            val effectiveShotCount = if (isTripleShotPowerUpActive) 3 else baseShotCount
+
+            if (shipClass.weaponType == WeaponType.SPREAD || effectiveShotCount >= 1) {
+                val spreadWidth = 20f * baseShotCount
+                val piercingLevel =
+                        runStats.getActiveUpgrades().count {
+                            it.type == MidRunUpgradeType.PIERCING_LASER
+                        }
+                val isPiercing = shipClass.weaponType == WeaponType.PIERCING || piercingLevel > 0
+                val piercingCount =
+                        if (shipClass.weaponType == WeaponType.PIERCING) 999 else piercingLevel
+
+                for (i in 0 until effectiveShotCount) {
+                    val offset = (i * (spreadWidth / (effectiveShotCount - 1))) - (spreadWidth / 2)
+                    spawnProjectile(
+                            playerShip.info.x + playerShip.info.width / 2 + offset,
+                            playerShip.info.y,
+                            isPiercing,
+                            piercingCount
+                    )
                 }
             } else {
-                spawnProjectile(playerShip.info.x, playerShip.info.y)
+                val piercingLevel =
+                        runStats.getActiveUpgrades().count {
+                            it.type == MidRunUpgradeType.PIERCING_LASER
+                        }
+                val isPiercing = shipClass.weaponType == WeaponType.PIERCING || piercingLevel > 0
+                val piercingCount =
+                        if (shipClass.weaponType == WeaponType.PIERCING) 999 else piercingLevel
+
+                spawnProjectile(
+                        playerShip.info.x + playerShip.info.width / 2,
+                        playerShip.info.y,
+                        isPiercing,
+                        piercingCount
+                )
             }
+
             attackSound.play(0.1f)
             lastProjectileTime = 0f
         }
@@ -787,12 +830,12 @@ class SpaceShooterGame(
         if (levelManager.isLevelCompleting()) return
 
         // Move left
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+        if (inputHandler.isMovingLeft()) {
             playerShip.info.x = max(0f, playerShip.info.x - playerShip.speed * deltaTime)
         }
 
         // Move right
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+        if (inputHandler.isMovingRight()) {
             playerShip.info.x =
                     min(
                             Gdx.graphics.width - playerShip.info.width,
@@ -814,160 +857,66 @@ class SpaceShooterGame(
         }
     }
 
-    private fun spawnProjectile(x: Float, y: Float) {
+    private fun spawnProjectile(
+            x: Float,
+            y: Float,
+            isPiercing: Boolean = false,
+            piercingCount: Int = 0
+    ) {
         val projectile =
                 projectilePool.obtain().apply {
-                    this.x = x
+                    this.x = x - projectileTexture.width / 2f
                     this.y = y
                     width = projectileTexture.width.toFloat()
                     height = projectileTexture.height.toFloat()
+                    this.isPiercing = isPiercing
+                    this.piercingCount = piercingCount
+                    this.hitEntities.clear()
                 }
         activeProjectiles.add(projectile)
     }
 
-    private fun updateBoss(delta: Float) {
-        if (isBossSpawned) {
-            boss.update(delta)
-            boss.draw(batch)
-
-            val projectilesToRemove = mutableListOf<Rectangle>()
-            val currentProjectiles = ArrayList(activeProjectiles)
-
-            // Boss collisions
-            for (projectile in currentProjectiles) {
-                if (Intersector.overlaps(projectile, boss.info)) {
-                    val damage =
-                            if (isBiggerProjectilesActive) biggerProjectileDamage
-                            else baseProjectileDamage
-                    if (boss.takeDamage(damage)) {
-                        isBossSpawned = false
-                        levelManager.onBossDefeated()
-                        handleLevelCompletion(delta)
-                    }
-                    spawnDamageNumber(damage, projectile.x, projectile.y)
-                    projectilesToRemove.add(projectile)
-                }
-            }
-
-            // Boss Asteroids collisions
-            val bossAsteroidsCopy = ArrayList(boss.asteroids)
-            for (asteroid in bossAsteroidsCopy) {
-                // Check collision with projectiles
-                for (projectile in currentProjectiles) {
-                    if (projectilesToRemove.contains(projectile)) continue
-
-                    if (Intersector.overlaps(projectile, asteroid)) {
-                        if (boss.handleAsteroidHit(asteroid)) {
-                            projectilesToRemove.add(projectile)
-                            // Optional: Spawn score or effect
-                        }
-                    }
-                }
-
-                // Check collision with player
-                if (Intersector.overlaps(asteroid, playerShip.info)) {
-                    if (boss.handleAsteroidHit(asteroid)) {
-                        Gdx.app.log(TAG, "Player hit by boss asteroid!")
-                        if (playerShip.takeDamage(2)) { // Asteroids do 2 damage
-                            Gdx.app.log(TAG, "Game Over! Player health depleted by asteroid")
-                            gameOver() // Assuming gameOver() exists or is handled similarly
-                        }
-                    }
-                }
-            }
-
-            // Check explosion collisions with player
-            if (boss.checkExplosionCollisions(playerShip.info)) {
-                Gdx.app.log(TAG, "Player hit by asteroid explosion!")
-                if (playerShip.takeDamage(1)) { // Explosion parts do 1 damage
-                    Gdx.app.log(TAG, "Game Over! Player health depleted by explosion")
-                    gameOver()
-                }
-            }
-
-            // Remove projectiles that hit boss or asteroids
-            for (projectile in projectilesToRemove) {
-                activeProjectiles.remove(projectile)
-                projectilePool.free(projectile)
-            }
-        }
-    }
-
-    private fun updateEnemies(delta: Float) {
+    private fun handleZBotProjectileCollisions() {
+        val projectilesToRemove = mutableListOf<br.com.woodriver.domain.zbot.ZBotProjectile>()
         val enemiesToRemove = mutableListOf<Enemy>()
-        val projectilesToRemove = mutableListOf<Rectangle>()
 
-        // Create a copy of the collections to iterate over
+        // Use snapshots to avoid ConcurrentModificationException
+        val currentZBotProjectiles = ArrayList(zBot.powerManager.projectiles)
         val currentEnemies = ArrayList(activeEnemies)
-        val currentProjectiles = ArrayList(activeProjectiles)
 
-        // Update enemy targets with player position
-        for (enemy in currentEnemies) {
-            enemy.updateTarget(playerShip.info.x, playerShip.info.y, delta)
-            enemy.update(delta)
+        currentZBotProjectiles.forEach { projectile ->
+            currentEnemies.forEach { enemy ->
+                if (projectile.bounds.overlaps(
+                                Rectangle(enemy.x, enemy.y, enemy.width, enemy.height)
+                        )
+                ) {
+                    enemy.takeDamage(projectile.damage)
+                    spawnDamageNumber(projectile.damage, enemy.x, enemy.y)
 
-            for (projectile in currentProjectiles) {
-                if (projectilesToRemove.contains(projectile))
-                        continue // Skip already marked projectiles
-
-                collisionChecksPerFrame++
-                totalCollisionChecks++
-                if (Intersector.overlaps(projectile, enemy.bounds)) {
-                    val damage =
-                            if (isBiggerProjectilesActive) biggerProjectileDamage
-                            else baseProjectileDamage
-                    Gdx.app.log(TAG, "Enemy hit! Damage: $damage")
-                    if (enemy.takeDamage(damage)) {
-                        enemiesToRemove.add(enemy)
+                    if (enemy.isDead) {
                         destroyedAsteroids++
-                        Gdx.app.log(TAG, "Enemy destroyed! Total destroyed: $destroyedAsteroids")
-
-                        // Check for material drop with position
-                        val (dropped, position) =
-                                materialManager.handleMaterialDrop(enemy.x, enemy.y)
-                        if (dropped) {
-                            materialsGained++
-                            spawnMaterialDropNumber(position.first, position.second)
-                            Gdx.app.log(TAG, "Material dropped! Total gained: $materialsGained")
-                        }
-
-                        // Collection XP for Roguelike Leveling
-                        if (runStats.addXP(enemy.xpValue)) {
-                            Gdx.app.log(TAG, "Level Up! Current Level: ${runStats.currentLevel}")
-                            gameState = UPGRADE_SELECTION
-                        }
+                        spawnMaterialDropNumber(x = enemy.x, y = enemy.y)
+                        enemiesToRemove.add(enemy)
+                        runStats.addXP(10)
                     }
-                    // Add damage number
-                    spawnDamageNumber(damage, projectile.x, projectile.y)
                     projectilesToRemove.add(projectile)
                 }
             }
 
-            // Check for collision with player
-            if (Intersector.overlaps(enemy.bounds, playerShip.info)) {
-                Gdx.app.log(TAG, "Player hit by enemy! Health: ${playerShip.health}")
-                if (playerShip.takeDamage()) {
-                    Gdx.app.log(TAG, "Game Over! Player health depleted")
-                    gameOver()
+            if (isBossSpawned && ::boss.isInitialized && !boss.isDead) {
+                if (projectile.bounds.overlaps(Rectangle(boss.x, boss.y, boss.width, boss.height))
+                ) {
+                    boss.takeDamage(projectile.damage)
+                    spawnDamageNumber(projectile.damage, boss.x, boss.y)
+                    projectilesToRemove.add(projectile)
                 }
-                enemiesToRemove.add(enemy)
-            }
-
-            if (enemy.isOffScreen(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())) {
-                enemiesToRemove.add(enemy)
             }
         }
 
-        // Remove enemies and return them to the pool
-        for (enemy in enemiesToRemove) {
+        projectilesToRemove.forEach { it.isExpired = true }
+        enemiesToRemove.forEach { enemy ->
             activeEnemies.remove(enemy)
             enemyPool.free(enemy)
-        }
-
-        // Remove projectiles and return them to the pool
-        for (projectile in projectilesToRemove) {
-            activeProjectiles.remove(projectile)
-            projectilePool.free(projectile)
         }
     }
 
@@ -1257,33 +1206,6 @@ class SpaceShooterGame(
         }
     }
 
-    private fun drawXPBar() {
-        val barWidth = screenWidth * 0.8f
-        val barHeight = 10f
-        val x = (screenWidth - barWidth) / 2
-        val y = screenHeight - 130f
-
-        shapeRenderer.projectionMatrix = batch.projectionMatrix
-        Gdx.gl.glEnable(GL20.GL_BLEND)
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-
-        // Background
-        shapeRenderer.color = Color.DARK_GRAY
-        shapeRenderer.rect(x, y, barWidth, barHeight)
-
-        // Progress
-        shapeRenderer.color = Color.CYAN
-        shapeRenderer.rect(x, y, barWidth * runStats.getXPPercentage(), barHeight)
-
-        shapeRenderer.end()
-
-        batch.begin()
-        font.color = Color.CYAN
-        font.draw(batch, "LVL ${runStats.currentLevel}", x - 50f, y + 10f)
-        font.color = Color.WHITE
-        batch.end()
-    }
-
     private var currentUpgradeOptions: List<MidRunUpgrade> = emptyList()
 
     private fun drawUpgradeOverlay() {
@@ -1344,18 +1266,36 @@ class SpaceShooterGame(
         batch.end()
     }
 
+    private fun updateRecovery(delta: Float) {
+        if (runStats.hasUpgrade(MidRunUpgradeType.SHIELD_REGEN)) {
+            recoveryTimer += delta
+            if (recoveryTimer >= recoveryInterval) {
+                if (playerShip.health < playerShip.maxHealth) {
+                    playerShip.health++
+                    Gdx.app.log(TAG, "Shield recovery: +1 Health")
+                }
+                recoveryTimer = 0f
+            }
+        }
+    }
+
     private fun applyMidRunUpgrade(upgrade: MidRunUpgrade) {
         runStats.addUpgrade(upgrade)
         Gdx.app.log(TAG, "Applied upgrade: ${upgrade.name}")
 
         when (upgrade.type) {
-            MidRunUpgradeType.TRIPLE_SHOT -> isTripleShotActive = true
+            MidRunUpgradeType.DUPLICATE_SHOT -> baseShotCount *= 2
             MidRunUpgradeType.RAPID_FIRE -> projectileCooldown *= 0.75f
-            MidRunUpgradeType.SPEED_BOOST -> playerShip.speed *= 1.15f
+            MidRunUpgradeType.SPEED_BOOST -> {
+                val oldSpeed = playerShip.speed
+                playerShip.speed *= 1.15f
+                Gdx.app.log(TAG, "Speed increased: $oldSpeed -> ${playerShip.speed}")
+            }
             MidRunUpgradeType.ARMOR_PLATING -> {
                 playerShip.maxHealth += 2
                 playerShip.health += 2
             }
+            MidRunUpgradeType.ADDITIONAL_SHOT -> baseShotCount++
             else -> {
                 /* Other upgrades handled in update/logic loops */
             }

@@ -1,30 +1,32 @@
 package br.com.woodriver.domain
 
-import br.com.woodriver.domain.EnemyType
 import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
+import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Disposable
 
 class Enemy(
-    val type: EnemyType,
-    var x: Float,
-    var y: Float,
-    var width: Float,
-    var height: Float,
-    var speed: Float,
-    var health: Int,
-    var isActive: Boolean = true
+        val type: EnemyType,
+        var x: Float,
+        var y: Float,
+        var width: Float,
+        var height: Float,
+        var speed: Float,
+        var health: Int,
+        var healthMultiplier: Float = 1f,
+        var isMiniBoss: Boolean = false,
+        var isActive: Boolean = true
 ) : Disposable {
     private val _bounds = Rectangle(x, y, width, height)
     val damage = type.getDamage()
     val scoreValue = type.getScoreValue()
     val xpValue = type.getXPValue()
     var texture = Texture(type.getTexturePath())
+
+    init {
+        health = (health * healthMultiplier).toInt()
+    }
 
     val bounds: Rectangle
         get() = _bounds
@@ -86,15 +88,23 @@ class Enemy(
     }
 
     companion object {
-        fun create(type: EnemyType, x: Float, y: Float): Enemy {
+        fun create(
+                type: EnemyType,
+                x: Float,
+                y: Float,
+                healthMultiplier: Float = 1f,
+                isMiniBoss: Boolean = false
+        ): Enemy {
             return Enemy(
-                type = type,
-                x = x,
-                y = y,
-                width = 64f,
-                height = 64f,
-                speed = type.getSpeed(),
-                health = type.getHealth()
+                    type = type,
+                    x = x,
+                    y = y,
+                    width = 64f,
+                    height = 64f,
+                    speed = type.getSpeed(),
+                    health = type.getHealth(),
+                    healthMultiplier = healthMultiplier,
+                    isMiniBoss = isMiniBoss
             )
         }
     }

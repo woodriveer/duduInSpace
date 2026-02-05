@@ -166,9 +166,9 @@ class SpaceShooter(
                         score += enemy.score
                         // Add materials based on enemy type
                         when (enemy.type) {
-                            EnemyType.ASTEROID -> materials.addIron(1)
-                            EnemyType.UFO -> materials.addGold(1)
-                            EnemyType.SPACE_SHIP -> materials.addCrystal(1)
+                            EnemyType.ASTEROID -> materials.add(1)
+                            EnemyType.UFO -> materials.add(1)
+                            EnemyType.SPACE_SHIP -> materials.add(1)
                         }
                     }
                 }
@@ -183,9 +183,7 @@ class SpaceShooter(
                     if (boss.takeDamage(projectile.damage)) {
                         score += 100
                         // Add bonus materials for defeating boss
-                        materials.addIron(5)
-                        materials.addGold(3)
-                        materials.addCrystal(1)
+                        materials.add(10)
                     }
                 }
             }

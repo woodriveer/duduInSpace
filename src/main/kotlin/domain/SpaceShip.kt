@@ -7,12 +7,13 @@ import com.badlogic.gdx.math.Rectangle
 import kotlin.math.min
 
 data class SpaceShip(
-  val texture: Texture,
-  val projectileTexture: Texture,
-  val info: Rectangle,
-  var speed: Float = 300f,
-  var health: Int = 5,
-  var maxHealth: Int = 5
+        val texture: Texture,
+        val projectileTexture: Texture,
+        val info: Rectangle,
+        var speed: Float = 300f,
+        var health: Int = 5,
+        var maxHealth: Int = 5,
+        val shipClass: ShipClass = ShipClass.ASSAULT
 ) {
   private var isVictoryAnimation: Boolean = false
   private var victorySpeed: Float = 0f
@@ -24,11 +25,11 @@ data class SpaceShip(
 
   fun takeDamage(amount: Int = 1): Boolean {
     if (isInvulnerable) return false
-    
+
     health -= amount
     isInvulnerable = true
     invulnerabilityTimer = invulnerabilityDuration
-    
+
     return health <= 0
   }
 
@@ -72,10 +73,10 @@ data class SpaceShip(
       val width = texture.width * 1.5f
       val height = texture.height * 1.5f
       return Rectangle(
-        (Gdx.graphics.width - width) / 2f,
-        SPACE_SHIP_Y_POSITION_OFFSET,
-        width,
-        height
+              (Gdx.graphics.width - width) / 2f,
+              SPACE_SHIP_Y_POSITION_OFFSET,
+              width,
+              height
       )
     }
   }

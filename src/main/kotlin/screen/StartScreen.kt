@@ -1,4 +1,4 @@
-package br.com.woodriver.game
+package br.com.woodriver.screen
 
 import br.com.woodriver.DuduInSpace
 import com.badlogic.gdx.Game
@@ -17,9 +17,10 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import br.com.woodriver.domain.Materials
 import br.com.woodriver.domain.PlayerUpgrades
+import br.com.woodriver.game.GlobalSkin
+import br.com.woodriver.screen.ProfileScreen
 import com.badlogic.gdx.Preferences
 import br.com.woodriver.manager.MaterialManager
-import br.com.woodriver.screen.UpgradeScreen
 
 class StartScreen(
     private val game: Game,
@@ -83,7 +84,7 @@ class StartScreen(
             table.add(startGameButton).center().width(200f).height(50f).padBottom(20f).row()
 
             // Configuration Button
-            val configurationGameButton: Button = TextButton("Configuration", skin, "default").apply { 
+            val configurationGameButton: Button = TextButton("Upgrades", skin, "default").apply {
                 label.setFontScale(0.6f)
              }
             configurationGameButton.setSize((colWidth * 4).toFloat(), rowHeight.toFloat())
@@ -93,11 +94,8 @@ class StartScreen(
 
                 override fun touchDown(event: InputEvent, x: Float, y: Float, pointer: Int, button: Int): Boolean {
                     if (game is DuduInSpace) {
-                        // Use MaterialManager for special materials
-                        val prefs: Preferences = Gdx.app.getPreferences("SpaceShooterProgress")
-                        val materialManager = MaterialManager(prefs)
-                        val configScreen = UpgradeScreen(game, playerUpgrades, materialManager)
-                        game.setScreen(configScreen)
+                        val upgradeScreen = UpgradeScreen(game, playerUpgrades)
+                        game.setScreen(upgradeScreen)
                         dispose() // Dispose resources when transitioning to another screen
                     }
                     return true

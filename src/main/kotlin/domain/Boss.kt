@@ -1,31 +1,32 @@
 package br.com.woodriver.domain
 
+import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.math.Rectangle
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
-import kotlin.random.Random
+import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.utils.Disposable
-import com.badlogic.gdx.Gdx
+import kotlin.random.Random
 
 class Boss(
-    x: Float,
-    y: Float,
-    width: Float = 128f,
-    height: Float = 128f
+        val x: Float,
+        val y: Float,
+        val config: BossConfig = BossConfig(),
+        val width: Float = 128f,
+        val height: Float = 128f
 ) : Disposable {
-    val texture = Texture("assets/boss.png")
+    val texture = Texture(config.texturePath)
     private val asteroidTexture = Texture("assets/asteroid-01.png")
     val info = Rectangle(x, y, width, height)
-    var health = 100
-    val maxHealth = 100
-    private var damage = 20
+    var health = config.health
+    val maxHealth = config.health
+    private var damage = config.damage
     var isDead = false
         private set
 
     // Movement properties
-    private var moveSpeed = 100f
+    private var moveSpeed = config.moveSpeed
     private var moveDirection = 1f // 1 for right, -1 for left
     private var moveTimer = 0f
     private val moveInterval = 2f // Change direction every 2 seconds
@@ -35,10 +36,10 @@ class Boss(
 
     // Attack properties
     private var attackTimer = 0f
-    private val attackInterval = 1.5f // Attack every 1.5 seconds
-    private val asteroidSpeed = 150f
+    private val attackInterval = config.attackInterval
+    private val asteroidSpeed = config.asteroidSpeed
     val asteroids = mutableListOf<Rectangle>()
-    private val asteroidSize = 128f // Made asteroids even bigger
+    private val asteroidSize = config.asteroidSize
     private val asteroidColor = Color(1f, 0.2f, 0.2f, 1f) // Bright red
 
     // Explosion properties
@@ -56,7 +57,10 @@ class Boss(
         if (moveTimer >= moveInterval) {
             moveDirection *= -1
             moveTimer = 0f
-            Gdx.app.log("Boss", "Changing direction to: ${if (moveDirection > 0) "right" else "left"}")
+            Gdx.app.log(
+                    "Boss",
+                    "Changing direction to: ${if (moveDirection > 0) "right" else "left"}"
+            )
         }
 
         // Horizontal movement
@@ -103,11 +107,12 @@ class Boss(
             val barY = info.y + info.height + 10f
 
             // Determine color
-            val color = when {
-                healthPercentage > 0.5f -> Color.GREEN
-                healthPercentage > 0.2f -> Color.YELLOW
-                else -> Color.RED
-            }
+            val color =
+                    when {
+                        healthPercentage > 0.5f -> Color.GREEN
+                        healthPercentage > 0.2f -> Color.YELLOW
+                        else -> Color.RED
+                    }
 
             // Draw background (gray)
             shapeRenderer.color = Color.GRAY
@@ -124,25 +129,24 @@ class Boss(
         val isEnraged = healthPercentage <= 0.2f
 
         val asteroidX = info.x + info.width / 2 - asteroidSize / 2
-        
+
         // Primary asteroid
-        val asteroid = Rectangle(
-            asteroidX,
-            info.y,
-            asteroidSize,
-            asteroidSize
-        )
+        val asteroid = Rectangle(asteroidX, info.y, asteroidSize, asteroidSize)
         asteroids.add(asteroid)
-        Gdx.app.log("Boss", "NEW ASTEROID CREATED - Position: ${asteroid.x}, ${asteroid.y}, Size: ${asteroid.width}x${asteroid.height}")
+        Gdx.app.log(
+                "Boss",
+                "NEW ASTEROID CREATED - Position: ${asteroid.x}, ${asteroid.y}, Size: ${asteroid.width}x${asteroid.height}"
+        )
 
         // Duplicate asteroid if enraged
         if (isEnraged) {
-             val asteroid2 = Rectangle(
-                asteroidX + if (Random.nextBoolean()) 50f else -50f, // Slight offset
-                info.y + 30f, // Slight vertical offset to look like a barrage
-                asteroidSize,
-                asteroidSize
-            )
+            val asteroid2 =
+                    Rectangle(
+                            asteroidX + if (Random.nextBoolean()) 50f else -50f, // Slight offset
+                            info.y + 30f, // Slight vertical offset to look like a barrage
+                            asteroidSize,
+                            asteroidSize
+                    )
             asteroids.add(asteroid2)
             Gdx.app.log("Boss", "ENRAGED MODE: EXTRA ASTEROID CREATED")
         }
@@ -186,16 +190,20 @@ class Boss(
             try {
                 // Draw boss
                 batch.draw(texture, info.x, info.y, info.width, info.height)
-                
+
                 // Draw asteroids
                 asteroids.forEach { asteroid ->
-                    batch.draw(asteroidTexture, asteroid.x, asteroid.y, asteroid.width, asteroid.height)
+                    batch.draw(
+                            asteroidTexture,
+                            asteroid.x,
+                            asteroid.y,
+                            asteroid.width,
+                            asteroid.height
+                    )
                 }
 
                 // Draw explosions
-                explosions.forEach { explosion ->
-                    explosion.draw(batch)
-                }
+                explosions.forEach { explosion -> explosion.draw(batch) }
             } catch (e: Exception) {
                 Gdx.app.error("Boss", "Error drawing boss elements: ${e.message}")
             }
@@ -215,12 +223,14 @@ class Boss(
         try {
             if (asteroids.remove(asteroid)) {
                 // Create explosion at asteroid position
-                explosions.add(AsteroidExplosion(
-                    x = asteroid.x,
-                    y = asteroid.y,
-                    size = asteroid.width,
-                    texture = asteroidTexture
-                ))
+                explosions.add(
+                        AsteroidExplosion(
+                                x = asteroid.x,
+                                y = asteroid.y,
+                                size = asteroid.width,
+                                texture = asteroidTexture
+                        )
+                )
                 return true
             }
         } catch (e: Exception) {
@@ -252,8 +262,8 @@ class Boss(
     }
 
     companion object {
-        fun create(x: Float, y: Float): Boss {
-            return Boss(x, y)
+        fun create(x: Float, y: Float, config: BossConfig = BossConfig()): Boss {
+            return Boss(x, y, config)
         }
     }
 }

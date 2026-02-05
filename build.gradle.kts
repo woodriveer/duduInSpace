@@ -18,6 +18,8 @@ dependencies {
     implementation("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
     implementation("com.badlogicgames.gdx:gdx-freetype:$gdxVersion")
     implementation("com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop")
+    implementation("com.badlogicgames.gdx-controllers:gdx-controllers-core:2.2.3")
+    implementation("com.badlogicgames.gdx-controllers:gdx-controllers-desktop:2.2.3")
     testImplementation(kotlin("test"))
 }
 

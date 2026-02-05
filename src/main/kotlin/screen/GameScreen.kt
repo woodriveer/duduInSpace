@@ -13,16 +13,18 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 
 class GameScreen(
-    private val game: DuduInSpace,
-    private val playerUpgrades: PlayerUpgrades,
-    private val materials: Materials,
-    private val levelNumber: Int
+        private val game: DuduInSpace,
+        private val playerUpgrades: PlayerUpgrades,
+        private val materials: Materials,
+        private val levelNumber: Int
 ) : Screen {
     private val batch = SpriteBatch()
     private val camera = OrthographicCamera()
     private var gameOver = false
-    private val materialManager = MaterialManager.fromMaterials(materials, Gdx.app.getPreferences("SpaceShooterProgress"))
-    private val spaceShooterGame = SpaceShooterGame(game, levelNumber, materialManager, playerUpgrades)
+    private val materialManager =
+            MaterialManager.fromMaterials(materials, Gdx.app.getPreferences("DuduInSpace"))
+    private val spaceShooterGame =
+            SpaceShooterGame(game, levelNumber, materialManager, playerUpgrades)
     private val damageFont = BitmapFont(Gdx.files.internal("fonts/audiowide.fnt"))
 
     init {
@@ -33,7 +35,7 @@ class GameScreen(
 
     override fun render(delta: Float) {
         if (gameOver) {
-            val upgradeScreen = UpgradeScreen(game, playerUpgrades, materialManager)
+            val upgradeScreen = UpgradeScreen(game, playerUpgrades)
             game.setScreen(upgradeScreen)
             dispose() // Dispose resources when transitioning to another screen
             return
